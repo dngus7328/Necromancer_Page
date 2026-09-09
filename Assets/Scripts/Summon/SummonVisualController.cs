@@ -20,11 +20,10 @@ public class SummonVisualController : MonoBehaviour
 
     [Header("참조")]
     [SerializeField] private SpriteRenderer spriteRenderer;
-    [SerializeField] private Rigidbody2D rb;
 
-    [Header("자동 전환 기준")]
-    [Tooltip("이 값보다 속도가 크면 Walk로 판정")]
-    [SerializeField] private float moveThreshold = 0.03f;
+    [Header("이동 판정")]
+    [Tooltip("한 프레임 이동량이 이 값보다 크면 Walk로 판정")]
+    [SerializeField] private float moveThreshold = 0.0005f;
 
     [Header("IDLE (3방향 배열)")]
     [Tooltip("순서: 아래 / 오른쪽 / 위")]
@@ -54,9 +53,13 @@ public class SummonVisualController : MonoBehaviour
 
     private const int TotalRows = 3;
 
-    private MotionType currentMotion = MotionType.Idle;
+    private MotionType currentMotion =
+        MotionType.Idle;
 
-    private Vector2 lastLookDirection = Vector2.down;
+    private Vector2 lastLookDirection =
+        Vector2.down;
+
+    private Vector3 previousPosition;
 
     private float animationTimer;
     private int currentFrame;
@@ -70,18 +73,19 @@ public class SummonVisualController : MonoBehaviour
     {
         if (spriteRenderer == null)
         {
-            spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+            spriteRenderer =
+                GetComponentInChildren<SpriteRenderer>();
         }
 
-        if (rb == null)
-        {
-            rb = GetComponent<Rigidbody2D>();
-        }
+        previousPosition =
+            transform.position;
     }
 
     private void Start()
     {
-        currentMotion = MotionType.Idle;
+        currentMotion =
+            MotionType.Idle;
+
         currentFrame = 0;
         animationTimer = 0f;
 
@@ -95,65 +99,50 @@ public class SummonVisualController : MonoBehaviour
             return;
         }
 
-        UpdateLookDirection();
-        UpdateAutomaticMotion();
+        UpdateMovementState();
         UpdateAnimation();
+
+        previousPosition =
+            transform.position;
     }
 
     // =========================================================
-    // 이동 방향 갱신
+    // 실제 위치 변화로 이동 판정
     // =========================================================
 
-    private void UpdateLookDirection()
+    private void UpdateMovementState()
     {
-        if (rb == null)
+        if (isDead ||
+            actionLocked)
         {
             return;
         }
 
-        if (actionLocked || isDead)
-        {
-            return;
-        }
-
-        Vector2 velocity = rb.velocity;
-
-        if (velocity.sqrMagnitude >
-            moveThreshold * moveThreshold)
-        {
-            lastLookDirection =
-                velocity.normalized;
-        }
-    }
-
-    // =========================================================
-    // Idle / Walk 자동 전환
-    // =========================================================
-
-    private void UpdateAutomaticMotion()
-    {
-        if (isDead || actionLocked)
-        {
-            return;
-        }
-
-        if (rb == null)
-        {
-            ChangeMotion(MotionType.Idle);
-            return;
-        }
+        Vector2 movement =
+            (Vector2)(
+                transform.position -
+                previousPosition
+            );
 
         bool isMoving =
-            rb.velocity.sqrMagnitude >
-            moveThreshold * moveThreshold;
+            movement.sqrMagnitude >
+            moveThreshold *
+            moveThreshold;
 
         if (isMoving)
         {
-            ChangeMotion(MotionType.Walk);
+            lastLookDirection =
+                movement.normalized;
+
+            ChangeMotion(
+                MotionType.Walk
+            );
         }
         else
         {
-            ChangeMotion(MotionType.Idle);
+            ChangeMotion(
+                MotionType.Idle
+            );
         }
     }
 
@@ -182,7 +171,8 @@ public class SummonVisualController : MonoBehaviour
         float frameDuration =
             1f / frameRate;
 
-        if (animationTimer < frameDuration)
+        if (animationTimer <
+            frameDuration)
         {
             return;
         }
@@ -195,41 +185,56 @@ public class SummonVisualController : MonoBehaviour
         switch (currentMotion)
         {
             case MotionType.Idle:
-                if (currentFrame >= idleColumns)
+
+                if (currentFrame >=
+                    idleColumns)
                 {
                     currentFrame = 0;
                 }
+
                 break;
 
             case MotionType.Walk:
-                if (currentFrame >= walkColumns)
+
+                if (currentFrame >=
+                    walkColumns)
                 {
                     currentFrame = 0;
                 }
+
                 break;
 
             case MotionType.Attack:
-                if (currentFrame >= attackColumns)
+
+                if (currentFrame >=
+                    attackColumns)
                 {
                     FinishOneShotMotion();
                     return;
                 }
+
                 break;
 
             case MotionType.Hit:
-                if (currentFrame >= hitFrames.Length)
+
+                if (currentFrame >=
+                    hitFrames.Length)
                 {
                     FinishOneShotMotion();
                     return;
                 }
+
                 break;
 
             case MotionType.Death:
-                if (currentFrame >= deathFrames.Length)
+
+                if (currentFrame >=
+                    deathFrames.Length)
                 {
                     currentFrame =
                         deathFrames.Length - 1;
                 }
+
                 break;
         }
 
@@ -287,7 +292,7 @@ public class SummonVisualController : MonoBehaviour
     }
 
     // =========================================================
-    // 현재 스프라이트 표시
+    // 현재 스프라이트 적용
     // =========================================================
 
     private void UpdateCurrentSprite()
@@ -300,11 +305,15 @@ public class SummonVisualController : MonoBehaviour
         switch (currentMotion)
         {
             case MotionType.Hit:
-                ApplySingleAnimation(hitFrames);
+                ApplySingleAnimation(
+                    hitFrames
+                );
                 break;
 
             case MotionType.Death:
-                ApplySingleAnimation(deathFrames);
+                ApplySingleAnimation(
+                    deathFrames
+                );
                 break;
 
             case MotionType.Attack:
@@ -348,7 +357,8 @@ public class SummonVisualController : MonoBehaviour
         int requiredCount =
             columns * TotalRows;
 
-        if (frames.Length < requiredCount)
+        if (frames.Length <
+            requiredCount)
         {
             return;
         }
@@ -383,7 +393,7 @@ public class SummonVisualController : MonoBehaviour
     }
 
     // =========================================================
-    // Hit / Death 공통 애니메이션
+    // 방향 무관 애니메이션
     // =========================================================
 
     private void ApplySingleAnimation(
@@ -402,7 +412,8 @@ public class SummonVisualController : MonoBehaviour
                 frames.Length - 1
             );
 
-        spriteRenderer.flipX = false;
+        spriteRenderer.flipX =
+            false;
 
         spriteRenderer.sprite =
             frames[index];
@@ -415,7 +426,8 @@ public class SummonVisualController : MonoBehaviour
     private void ChangeMotion(
         MotionType newMotion)
     {
-        if (currentMotion == newMotion)
+        if (currentMotion ==
+            newMotion)
         {
             return;
         }
@@ -430,7 +442,7 @@ public class SummonVisualController : MonoBehaviour
     }
 
     // =========================================================
-    // Attack / Hit 종료
+    // 일회성 모션 종료
     // =========================================================
 
     private void FinishOneShotMotion()
@@ -449,9 +461,15 @@ public class SummonVisualController : MonoBehaviour
             return;
         }
 
-        if (rb != null &&
-            rb.velocity.sqrMagnitude >
-            moveThreshold * moveThreshold)
+        Vector2 movement =
+            (Vector2)(
+                transform.position -
+                previousPosition
+            );
+
+        if (movement.sqrMagnitude >
+            moveThreshold *
+            moveThreshold)
         {
             currentMotion =
                 MotionType.Walk;
@@ -466,7 +484,7 @@ public class SummonVisualController : MonoBehaviour
     }
 
     // =========================================================
-    // 외부에서 방향 지정
+    // 외부 방향 지정
     // =========================================================
 
     public void SetFacingDirection(
@@ -552,7 +570,7 @@ public class SummonVisualController : MonoBehaviour
     }
 
     // =========================================================
-    // 3방향 판정
+    // 방향 판정
     // =========================================================
 
     private int GetRowIndex(
@@ -561,10 +579,12 @@ public class SummonVisualController : MonoBehaviour
     {
         flipX = false;
 
-        float x = direction.x;
-        float y = direction.y;
+        float x =
+            direction.x;
 
-        // 세로 방향 성분이 더 크면 위/아래
+        float y =
+            direction.y;
+
         if (Mathf.Abs(y) >
             Mathf.Abs(x))
         {
@@ -576,7 +596,6 @@ public class SummonVisualController : MonoBehaviour
             return (int)RowType.Down;
         }
 
-        // 가로 방향
         if (x < 0f)
         {
             flipX = true;
@@ -590,7 +609,7 @@ public class SummonVisualController : MonoBehaviour
     {
         moveThreshold =
             Mathf.Max(
-                0.001f,
+                0.00001f,
                 moveThreshold
             );
 
