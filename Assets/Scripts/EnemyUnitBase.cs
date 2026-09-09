@@ -25,20 +25,24 @@ public class EnemyUnitBase : MonoBehaviour
 
     [Header("공격")]
     [SerializeField] private float attackDamage = 10f;
-    [SerializeField] private float attackRange = 0.8f;
+
+    [Tooltip("Collider 표면끼리 이 거리 안에 들어오면 공격 시작")]
+    [SerializeField] private float attackRange = 0.15f;
+
+    [Tooltip("공격을 시작한 뒤 이 거리까지는 움직이지 않고 계속 공격")]
+    [SerializeField] private float attackKeepRange = 0.35f;
+
     [SerializeField] private float attackInterval = 1.2f;
 
-    [Header("타겟 설정")]
-    [SerializeField] private TargetType targetType = TargetType.Nearest;
+    [Header("타깃 설정")]
+    [SerializeField]
+    private TargetType targetType =
+        TargetType.Nearest;
 
     [SerializeField] private LayerMask summonLayer;
 
-    [Tooltip("우선 공격 대상을 발견할 수 있는 거리")]
     [SerializeField] private float detectionRange = 7f;
-
-    [Tooltip("현재 우선 타겟을 포기하는 거리")]
     [SerializeField] private float disengageRange = 10f;
-
     [SerializeField] private float searchInterval = 0.2f;
 
     private Rigidbody2D rb;
@@ -46,14 +50,24 @@ public class EnemyUnitBase : MonoBehaviour
     private Transform ribel;
     private Transform currentTarget;
 
+    private Collider2D bodyCollider;
+
     private float currentHealth;
     private float attackTimer;
     private float searchTimer;
 
     private bool isDead;
+    private bool isAttackMode;
 
-    public float CurrentHealth => currentHealth;
-    public float MaxHealth => maxHealth;
+    // 공격 중 위치를 잠갔다가
+    // 원래 Rigidbody 설정으로 정확히 되돌리기 위한 값
+    private RigidbodyConstraints2D normalConstraints;
+
+    public float CurrentHealth =>
+        currentHealth;
+
+    public float MaxHealth =>
+        maxHealth;
 
     public float HealthRatio
     {
@@ -65,22 +79,56 @@ public class EnemyUnitBase : MonoBehaviour
             }
 
             return Mathf.Clamp01(
-                currentHealth / maxHealth
+                currentHealth /
+                maxHealth
             );
         }
     }
 
+    // =========================================================
+    // 초기화
+    // =========================================================
+
     private void Awake()
     {
-        rb = GetComponent<Rigidbody2D>();
-        currentHealth = maxHealth;
+        rb =
+            GetComponent<Rigidbody2D>();
+
+        // Inspector에 원래 설정돼 있던 Constraints 기억
+        // 예: Freeze Rotation Z
+        normalConstraints =
+            rb.constraints;
+
+        bodyCollider =
+            GetComponent<Collider2D>();
+
+        if (bodyCollider == null)
+        {
+            Collider2D[] colliders =
+                GetComponentsInChildren<Collider2D>();
+
+            for (int i = 0;
+                 i < colliders.Length;
+                 i++)
+            {
+                if (colliders[i] != null &&
+                    !colliders[i].isTrigger)
+                {
+                    bodyCollider =
+                        colliders[i];
+
+                    break;
+                }
+            }
+        }
+
+        currentHealth =
+            maxHealth;
     }
 
     private void Start()
     {
         FindRibel();
-
-        // 생성 직후 기본 목표는 무조건 리벨
         SetRibelAsTarget();
     }
 
@@ -99,6 +147,7 @@ public class EnemyUnitBase : MonoBehaviour
     {
         if (isDead)
         {
+            StopMovement();
             return;
         }
 
@@ -106,7 +155,7 @@ public class EnemyUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // 리벨 찾기
+    // 리벨
     // =========================================================
 
     private void FindRibel()
@@ -117,47 +166,134 @@ public class EnemyUnitBase : MonoBehaviour
         }
 
         GameObject ribelObject =
-            GameObject.FindGameObjectWithTag("Player");
+            GameObject.FindGameObjectWithTag(
+                "Player"
+            );
 
         if (ribelObject != null)
         {
-            ribel = ribelObject.transform;
+            ribel =
+                ribelObject.transform;
         }
     }
 
     private void SetRibelAsTarget()
     {
+        // 다른 공격 상태에서 빠져나오는 경우
+        // 위치 잠금도 반드시 해제
+        ExitAttackMode();
+
         if (ribel == null)
         {
             FindRibel();
         }
 
-        currentTarget = ribel;
+        currentTarget =
+            ribel;
     }
 
     // =========================================================
-    // 피해 / 사망
+    // 공격 모드 시작 / 종료
     // =========================================================
 
-    public void TakeDamage(float damage)
+    private void EnterAttackMode()
     {
-        if (isDead || damage <= 0f)
+        if (isAttackMode)
+        {
+            LockAttackPosition();
+            return;
+        }
+
+        isAttackMode =
+            true;
+
+        LockAttackPosition();
+    }
+
+    private void ExitAttackMode()
+    {
+        if (!isAttackMode)
+        {
+            // 혹시 이전 상태가 꼬여 Constraints만 남아 있어도
+            // 원래 값으로 복구
+            UnlockAttackPosition();
+            return;
+        }
+
+        isAttackMode =
+            false;
+
+        UnlockAttackPosition();
+    }
+
+    // =========================================================
+    // 공격 중 위치 완전 고정
+    // =========================================================
+
+    private void LockAttackPosition()
+    {
+        if (rb == null)
         {
             return;
         }
 
-        currentHealth -= damage;
+        rb.velocity =
+            Vector2.zero;
 
-        if (currentHealth < 0f)
+        rb.angularVelocity =
+            0f;
+
+        rb.constraints =
+            normalConstraints |
+            RigidbodyConstraints2D.FreezePositionX |
+            RigidbodyConstraints2D.FreezePositionY |
+            RigidbodyConstraints2D.FreezeRotation;
+    }
+
+    private void UnlockAttackPosition()
+    {
+        if (rb == null)
         {
-            currentHealth = 0f;
+            return;
         }
+
+        rb.constraints =
+            normalConstraints;
+
+        rb.velocity =
+            Vector2.zero;
+
+        rb.angularVelocity =
+            0f;
+    }
+
+    // =========================================================
+    // 피해
+    // =========================================================
+
+    public void TakeDamage(
+        float damage)
+    {
+        if (isDead ||
+            damage <= 0f)
+        {
+            return;
+        }
+
+        currentHealth -=
+            damage;
 
         if (currentHealth <= 0f)
         {
+            currentHealth = 0f;
+
             Die();
         }
     }
+
+    // =========================================================
+    // 사망
+    // =========================================================
 
     private void Die()
     {
@@ -166,8 +302,16 @@ public class EnemyUnitBase : MonoBehaviour
             return;
         }
 
-        isDead = true;
-        currentHealth = 0f;
+        isDead =
+            true;
+
+        currentHealth =
+            0f;
+
+        currentTarget =
+            null;
+
+        ExitAttackMode();
 
         StopMovement();
 
@@ -178,31 +322,85 @@ public class EnemyUnitBase : MonoBehaviour
             );
         }
 
-        Destroy(gameObject);
+        Destroy(
+            gameObject
+        );
     }
 
     // =========================================================
-    // 타겟 관리
+    // 실제 Collider 표면 사이 거리
+    // =========================================================
+
+    private float GetTargetDistance()
+    {
+        if (currentTarget == null)
+        {
+            return Mathf.Infinity;
+        }
+
+        Collider2D targetCollider =
+            currentTarget
+                .GetComponent<Collider2D>();
+
+        if (targetCollider == null)
+        {
+            targetCollider =
+                currentTarget
+                    .GetComponentInChildren<Collider2D>();
+        }
+
+        if (bodyCollider != null &&
+            targetCollider != null &&
+            bodyCollider.enabled &&
+            targetCollider.enabled)
+        {
+            ColliderDistance2D result =
+                bodyCollider.Distance(
+                    targetCollider
+                );
+
+            return Mathf.Max(
+                0f,
+                result.distance
+            );
+        }
+
+        // Collider를 못 찾은 경우만 중심 거리 사용
+        return Vector2.Distance(
+            rb.position,
+            currentTarget.position
+        );
+    }
+
+    // =========================================================
+    // 타깃 관리
     // =========================================================
 
     private void UpdateTarget()
     {
-        if (targetType == TargetType.Escape)
+        if (targetType ==
+            TargetType.Escape)
         {
-            currentTarget = null;
+            currentTarget =
+                null;
+
+            ExitAttackMode();
+
             return;
         }
 
-        searchTimer -= Time.deltaTime;
+        searchTimer -=
+            Time.deltaTime;
 
         if (searchTimer > 0f)
         {
             return;
         }
 
-        searchTimer = searchInterval;
+        searchTimer =
+            searchInterval;
 
-        // 현재 타겟이 사라짐
+        // 현재 타깃이 사라졌으면 리벨로 복귀
         if (currentTarget == null ||
             !currentTarget.gameObject.activeInHierarchy)
         {
@@ -210,46 +408,85 @@ public class EnemyUnitBase : MonoBehaviour
             return;
         }
 
-        // 리벨만 공격하는 적
-        if (targetType == TargetType.RibelOnly)
+        // =====================================================
+        // 공격 중에는 타깃 절대 변경 안 함
+        // =====================================================
+
+        if (isAttackMode)
         {
-            SetRibelAsTarget();
+            float centerDistance =
+                Vector2.Distance(
+                    rb.position,
+                    currentTarget.position
+                );
+
+            // 정말 멀리 도망간 경우에만
+            // 공격 모드 해제
+            if (centerDistance >
+                disengageRange)
+            {
+                ExitAttackMode();
+                SetRibelAsTarget();
+            }
+
             return;
         }
 
         // =====================================================
-        // 이미 소환수를 하나 타겟으로 잡았다면
-        // 함부로 다른 소환수로 갈아타지 않음
+        // 리벨만 공격하는 적
+        // =====================================================
+
+        if (targetType ==
+            TargetType.RibelOnly)
+        {
+            if (currentTarget !=
+                ribel)
+            {
+                SetRibelAsTarget();
+            }
+
+            return;
+        }
+
+        // =====================================================
+        // 이미 소환수를 타깃으로 잡고 있다면 유지
         // =====================================================
 
         SummonUnitBase currentSummon =
-            currentTarget.GetComponent<SummonUnitBase>();
+            currentTarget
+                .GetComponent<SummonUnitBase>();
+
+        if (currentSummon == null)
+        {
+            currentSummon =
+                currentTarget
+                    .GetComponentInChildren<SummonUnitBase>();
+        }
 
         if (currentSummon != null)
         {
             float distance =
                 Vector2.Distance(
-                    transform.position,
+                    rb.position,
                     currentTarget.position
                 );
 
-            // 너무 멀어진 경우에만 포기
-            if (distance > disengageRange)
+            if (distance >
+                disengageRange)
             {
                 SetRibelAsTarget();
             }
-            else
-            {
-                return;
-            }
+
+            return;
         }
 
         // =====================================================
-        // 현재 리벨을 쫓고 있을 때만
-        // 더 우선적인 소환수 탐색
+        // 리벨을 쫓는 중이면
+        // 특성에 맞는 소환수 확인
         // =====================================================
 
-        if (currentTarget == ribel)
+        if (currentTarget ==
+            ribel)
         {
             Transform preferredTarget =
                 FindPreferredTarget();
@@ -259,12 +496,14 @@ public class EnemyUnitBase : MonoBehaviour
             {
                 currentTarget =
                     preferredTarget;
+
+                ExitAttackMode();
             }
         }
     }
 
     // =========================================================
-    // 유형별 우선 타겟
+    // 타깃 선택
     // =========================================================
 
     private Transform FindPreferredTarget()
@@ -290,28 +529,31 @@ public class EnemyUnitBase : MonoBehaviour
         return null;
     }
 
-    // =========================================================
-    // 가장 가까운 소환수
-    // =========================================================
-
     private Transform FindNearestSummon()
     {
         Collider2D[] summons =
             Physics2D.OverlapCircleAll(
-                transform.position,
+                rb.position,
                 detectionRange,
                 summonLayer
             );
 
-        Transform bestTarget = null;
-        float bestDistance = Mathf.Infinity;
+        Transform bestTarget =
+            null;
 
-        for (int i = 0; i < summons.Length; i++)
+        float bestDistance =
+            Mathf.Infinity;
+
+        for (int i = 0;
+             i < summons.Length;
+             i++)
         {
             SummonUnitBase summon =
-                summons[i].GetComponentInParent<SummonUnitBase>();
+                summons[i]
+                    .GetComponentInParent<SummonUnitBase>();
 
-            if (summon == null)
+            if (summon == null ||
+                summon.IsDead)
             {
                 continue;
             }
@@ -322,46 +564,57 @@ public class EnemyUnitBase : MonoBehaviour
                     rb.position
                 );
 
-            if (distance < bestDistance)
+            if (distance <
+                bestDistance)
             {
-                bestDistance = distance;
-                bestTarget = summon.transform;
+                bestDistance =
+                    distance;
+
+                bestTarget =
+                    summon.transform;
             }
         }
 
         return bestTarget;
     }
-
-    // =========================================================
-    // 방어력 높은 소환수
-    // =========================================================
 
     private Transform FindHighestDefenseSummon()
     {
         Collider2D[] summons =
             Physics2D.OverlapCircleAll(
-                transform.position,
+                rb.position,
                 detectionRange,
                 summonLayer
             );
 
-        SummonUnitBase bestSummon = null;
-        float highestDefense = float.MinValue;
+        SummonUnitBase bestSummon =
+            null;
 
-        for (int i = 0; i < summons.Length; i++)
+        float highestDefense =
+            float.MinValue;
+
+        for (int i = 0;
+             i < summons.Length;
+             i++)
         {
             SummonUnitBase summon =
-                summons[i].GetComponentInParent<SummonUnitBase>();
+                summons[i]
+                    .GetComponentInParent<SummonUnitBase>();
 
-            if (summon == null)
+            if (summon == null ||
+                summon.IsDead)
             {
                 continue;
             }
 
-            if (summon.Defense > highestDefense)
+            if (summon.Defense >
+                highestDefense)
             {
-                highestDefense = summon.Defense;
-                bestSummon = summon;
+                highestDefense =
+                    summon.Defense;
+
+                bestSummon =
+                    summon;
             }
         }
 
@@ -369,37 +622,44 @@ public class EnemyUnitBase : MonoBehaviour
             ? bestSummon.transform
             : null;
     }
-
-    // =========================================================
-    // 최대 HP 높은 소환수
-    // =========================================================
 
     private Transform FindHighestMaxHealthSummon()
     {
         Collider2D[] summons =
             Physics2D.OverlapCircleAll(
-                transform.position,
+                rb.position,
                 detectionRange,
                 summonLayer
             );
 
-        SummonUnitBase bestSummon = null;
-        float highestHealth = float.MinValue;
+        SummonUnitBase bestSummon =
+            null;
 
-        for (int i = 0; i < summons.Length; i++)
+        float highestHealth =
+            float.MinValue;
+
+        for (int i = 0;
+             i < summons.Length;
+             i++)
         {
             SummonUnitBase summon =
-                summons[i].GetComponentInParent<SummonUnitBase>();
+                summons[i]
+                    .GetComponentInParent<SummonUnitBase>();
 
-            if (summon == null)
+            if (summon == null ||
+                summon.IsDead)
             {
                 continue;
             }
 
-            if (summon.MaxHealth > highestHealth)
+            if (summon.MaxHealth >
+                highestHealth)
             {
-                highestHealth = summon.MaxHealth;
-                bestSummon = summon;
+                highestHealth =
+                    summon.MaxHealth;
+
+                bestSummon =
+                    summon;
             }
         }
 
@@ -408,28 +668,31 @@ public class EnemyUnitBase : MonoBehaviour
             : null;
     }
 
-    // =========================================================
-    // 가장 먼 소환수
-    // =========================================================
-
     private Transform FindFarthestSummon()
     {
         Collider2D[] summons =
             Physics2D.OverlapCircleAll(
-                transform.position,
+                rb.position,
                 detectionRange,
                 summonLayer
             );
 
-        Transform bestTarget = null;
-        float farthestDistance = -1f;
+        Transform bestTarget =
+            null;
 
-        for (int i = 0; i < summons.Length; i++)
+        float farthestDistance =
+            -1f;
+
+        for (int i = 0;
+             i < summons.Length;
+             i++)
         {
             SummonUnitBase summon =
-                summons[i].GetComponentInParent<SummonUnitBase>();
+                summons[i]
+                    .GetComponentInParent<SummonUnitBase>();
 
-            if (summon == null)
+            if (summon == null ||
+                summon.IsDead)
             {
                 continue;
             }
@@ -440,10 +703,14 @@ public class EnemyUnitBase : MonoBehaviour
                     rb.position
                 );
 
-            if (distance > farthestDistance)
+            if (distance >
+                farthestDistance)
             {
-                farthestDistance = distance;
-                bestTarget = summon.transform;
+                farthestDistance =
+                    distance;
+
+                bestTarget =
+                    summon.transform;
             }
         }
 
@@ -451,13 +718,16 @@ public class EnemyUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // 이동
+    // 이동 / 공격
     // =========================================================
 
     private void UpdateMovement()
     {
-        if (targetType == TargetType.Escape)
+        if (targetType ==
+            TargetType.Escape)
         {
+            ExitAttackMode();
+
             StopMovement();
             return;
         }
@@ -474,26 +744,61 @@ public class EnemyUnitBase : MonoBehaviour
         }
 
         float distance =
-            Vector2.Distance(
-                rb.position,
-                currentTarget.position
-            );
+            GetTargetDistance();
 
-        if (distance <= attackRange)
+        // =====================================================
+        // 이미 공격 모드
+        // =====================================================
+
+        if (isAttackMode)
         {
-            StopMovement();
+            // 공격 중에는 매 FixedUpdate마다
+            // 물리적으로 위치를 다시 잠금
+            LockAttackPosition();
+
+            // Keep Range 안이면
+            // 절대로 MovePosition 호출하지 않음
+            if (distance <=
+                attackKeepRange)
+            {
+                TryAttack();
+                return;
+            }
+
+            // 상대가 확실히 멀어졌음
+            ExitAttackMode();
+        }
+
+        // =====================================================
+        // 공격 시작
+        // =====================================================
+
+        if (distance <=
+            attackRange)
+        {
+            EnterAttackMode();
+
             TryAttack();
             return;
         }
+
+        // =====================================================
+        // 사거리 밖일 때만 이동
+        // =====================================================
+
+        UnlockAttackPosition();
 
         Vector2 nextPosition =
             Vector2.MoveTowards(
                 rb.position,
                 currentTarget.position,
-                moveSpeed * Time.fixedDeltaTime
+                moveSpeed *
+                Time.fixedDeltaTime
             );
 
-        rb.MovePosition(nextPosition);
+        rb.MovePosition(
+            nextPosition
+        );
     }
 
     // =========================================================
@@ -502,14 +807,26 @@ public class EnemyUnitBase : MonoBehaviour
 
     private void TryAttack()
     {
-        if (attackTimer > 0f ||
+        if (!isAttackMode ||
+            attackTimer > 0f ||
             currentTarget == null)
         {
             return;
         }
 
+        // 공격 중에는 반드시 고정
+        LockAttackPosition();
+
         SummonUnitBase summon =
-            currentTarget.GetComponent<SummonUnitBase>();
+            currentTarget
+                .GetComponent<SummonUnitBase>();
+
+        if (summon == null)
+        {
+            summon =
+                currentTarget
+                    .GetComponentInChildren<SummonUnitBase>();
+        }
 
         if (summon != null)
         {
@@ -523,22 +840,31 @@ public class EnemyUnitBase : MonoBehaviour
             return;
         }
 
-        if (currentTarget.CompareTag("Player"))
-        {
-            RibelHealth health =
-                currentTarget.GetComponent<RibelHealth>();
+        RibelHealth health =
+            currentTarget
+                .GetComponent<RibelHealth>();
 
-            if (health != null)
-            {
-                health.TakeDamage(
-                    attackDamage
-                );
-            }
+        if (health == null)
+        {
+            health =
+                currentTarget
+                    .GetComponentInChildren<RibelHealth>();
+        }
+
+        if (health != null)
+        {
+            health.TakeDamage(
+                attackDamage
+            );
 
             attackTimer =
                 attackInterval;
         }
     }
+
+    // =========================================================
+    // 타이머
+    // =========================================================
 
     private void UpdateTimers()
     {
@@ -546,38 +872,83 @@ public class EnemyUnitBase : MonoBehaviour
         {
             attackTimer -=
                 Time.deltaTime;
+
+            if (attackTimer < 0f)
+            {
+                attackTimer =
+                    0f;
+            }
         }
     }
 
+    // =========================================================
+    // 정지
+    // =========================================================
+
     private void StopMovement()
     {
-        rb.velocity = Vector2.zero;
-        rb.angularVelocity = 0f;
+        if (rb == null)
+        {
+            return;
+        }
+
+        rb.velocity =
+            Vector2.zero;
+
+        rb.angularVelocity =
+            0f;
     }
 
 #if UNITY_EDITOR
     private void OnValidate()
     {
         maxHealth =
-            Mathf.Max(1f, maxHealth);
+            Mathf.Max(
+                1f,
+                maxHealth
+            );
 
         manaReward =
-            Mathf.Max(0f, manaReward);
+            Mathf.Max(
+                0f,
+                manaReward
+            );
 
         moveSpeed =
-            Mathf.Max(0f, moveSpeed);
+            Mathf.Max(
+                0f,
+                moveSpeed
+            );
 
         attackDamage =
-            Mathf.Max(0f, attackDamage);
+            Mathf.Max(
+                0f,
+                attackDamage
+            );
 
         attackRange =
-            Mathf.Max(0.05f, attackRange);
+            Mathf.Max(
+                0.01f,
+                attackRange
+            );
+
+        attackKeepRange =
+            Mathf.Max(
+                attackRange,
+                attackKeepRange
+            );
 
         attackInterval =
-            Mathf.Max(0.05f, attackInterval);
+            Mathf.Max(
+                0.05f,
+                attackInterval
+            );
 
         detectionRange =
-            Mathf.Max(0.1f, detectionRange);
+            Mathf.Max(
+                0.1f,
+                detectionRange
+            );
 
         disengageRange =
             Mathf.Max(
@@ -586,7 +957,10 @@ public class EnemyUnitBase : MonoBehaviour
             );
 
         searchInterval =
-            Mathf.Max(0.05f, searchInterval);
+            Mathf.Max(
+                0.05f,
+                searchInterval
+            );
     }
 #endif
 }

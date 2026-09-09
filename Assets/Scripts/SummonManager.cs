@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 public class SummonManager : MonoBehaviour
@@ -13,6 +14,10 @@ public class SummonManager : MonoBehaviour
         [Header("배치 프리뷰")]
         public GameObject previewPrefab;
 
+        [Header("소환진")]
+        [Tooltip("소환할 때 바닥에 표시할 소환진 PNG")]
+        public Sprite summonCircleSprite;
+
         [Header("비용")]
         public float manaCost = 20f;
         public int capacityCost = 1;
@@ -24,7 +29,6 @@ public class SummonManager : MonoBehaviour
         new SummonSlot[8];
 
     [Header("슬롯 UI")]
-    [Tooltip("SummonSlot_01 ~ 08의 SummonSlotVisual")]
     [SerializeField]
     private SummonSlotVisual[] slotVisuals =
         new SummonSlotVisual[8];
@@ -42,29 +46,52 @@ public class SummonManager : MonoBehaviour
 
     [Header("소환 범위")]
     [SerializeField] private GameObject summonRangeVisual;
-
     [SerializeField] private SpriteRenderer summonRangeRenderer;
-
     [SerializeField] private float fallbackSummonRange = 9f;
 
     [Header("배치")]
     [SerializeField] private Camera mainCamera;
-
     [SerializeField] private LayerMask blockedLayers;
-
     [SerializeField] private float placementCheckRadius = 0.35f;
 
     [Header("프리뷰 색")]
     [SerializeField]
     private Color validPreviewColor =
-        new Color(0.65f, 0.4f, 1f, 0.65f);
+        new Color(
+            0.65f,
+            0.4f,
+            1f,
+            0.65f
+        );
 
     [SerializeField]
     private Color invalidPreviewColor =
-        new Color(1f, 0.25f, 0.25f, 0.65f);
+        new Color(
+            1f,
+            0.25f,
+            0.25f,
+            0.65f
+        );
 
     [Header("배치 취소 X")]
     [SerializeField] private GameObject placementCancelButton;
+
+    [Header("소환진 연출")]
+    [SerializeField] private float circleStartScale = 0.65f;
+    [SerializeField] private float circlePeakScale = 1.15f;
+    [SerializeField] private float circleEndScale = 1.30f;
+
+    [SerializeField] private float circleBurstTime = 0.07f;
+    [SerializeField] private float circleHoldTime = 0.05f;
+    [SerializeField] private float circleFadeTime = 0.22f;
+
+    [Tooltip("소환진 Sorting Order")]
+    [SerializeField] private int circleSortingOrder = 50;
+
+    [Header("소환수 등장 연출")]
+    [SerializeField] private float summonAppearTime = 0.22f;
+    [SerializeField] private float summonStartScale = 0.82f;
+    [SerializeField] private float summonRiseDistance = 0.12f;
 
     private int selectedSlotIndex = -1;
 
@@ -121,7 +148,9 @@ public class SummonManager : MonoBehaviour
         {
             summonRangeRenderer =
                 summonRangeVisual
-                    .GetComponentInChildren<SpriteRenderer>(true);
+                    .GetComponentInChildren<SpriteRenderer>(
+                        true
+                    );
         }
 
         currentMana =
@@ -143,12 +172,16 @@ public class SummonManager : MonoBehaviour
     {
         if (placementCancelButton != null)
         {
-            placementCancelButton.SetActive(false);
+            placementCancelButton.SetActive(
+                false
+            );
         }
 
         if (summonRangeVisual != null)
         {
-            summonRangeVisual.SetActive(false);
+            summonRangeVisual.SetActive(
+                false
+            );
         }
 
         ClearSlotSelectionVisual();
@@ -199,7 +232,9 @@ public class SummonManager : MonoBehaviour
 
     private void HandleSlotInput()
     {
-        for (int i = 0; i < 8; i++)
+        for (int i = 0;
+             i < 8;
+             i++)
         {
             KeyCode key =
                 (KeyCode)(
@@ -213,7 +248,6 @@ public class SummonManager : MonoBehaviour
             }
 
             SelectSlot(i);
-
             break;
         }
     }
@@ -222,7 +256,8 @@ public class SummonManager : MonoBehaviour
     // 슬롯 선택
     // =========================================================
 
-    private void SelectSlot(int slotIndex)
+    private void SelectSlot(
+        int slotIndex)
     {
         if (slotIndex < 0 ||
             slotIndex >= summonSlots.Length)
@@ -239,10 +274,6 @@ public class SummonManager : MonoBehaviour
             return;
         }
 
-        // =====================================================
-        // 같은 슬롯 두 번째 입력
-        // =====================================================
-
         if (selectedSlotIndex ==
             slotIndex)
         {
@@ -257,7 +288,6 @@ public class SummonManager : MonoBehaviour
         selectedSlotIndex =
             slotIndex;
 
-        // ★ 선택 피드백 갱신
         UpdateSlotSelectionVisual();
 
         if (isPlacementMode)
@@ -266,10 +296,6 @@ public class SummonManager : MonoBehaviour
             CreatePreview();
         }
     }
-
-    // =========================================================
-    // 슬롯 선택 UI
-    // =========================================================
 
     private void UpdateSlotSelectionVisual()
     {
@@ -288,7 +314,8 @@ public class SummonManager : MonoBehaviour
             }
 
             slotVisuals[i].SetSelected(
-                i == selectedSlotIndex
+                i ==
+                selectedSlotIndex
             );
         }
     }
@@ -328,7 +355,8 @@ public class SummonManager : MonoBehaviour
             return;
         }
 
-        isPlacementMode = true;
+        isPlacementMode =
+            true;
 
         if (summonRangeVisual != null)
         {
@@ -348,7 +376,7 @@ public class SummonManager : MonoBehaviour
     }
 
     // =========================================================
-    // 프리뷰 생성
+    // 프리뷰
     // =========================================================
 
     private void CreatePreview()
@@ -384,10 +412,6 @@ public class SummonManager : MonoBehaviour
             currentPreview
                 .GetComponentsInChildren<SpriteRenderer>();
     }
-
-    // =========================================================
-    // 프리뷰 이동
-    // =========================================================
 
     private void UpdatePlacementPreview()
     {
@@ -427,9 +451,7 @@ public class SummonManager : MonoBehaviour
 
         if (currentPreview != null)
         {
-            currentPreview
-                .transform
-                .position =
+            currentPreview.transform.position =
                 currentPlacementPosition;
         }
 
@@ -440,10 +462,6 @@ public class SummonManager : MonoBehaviour
 
         UpdatePreviewColor();
     }
-
-    // =========================================================
-    // 실제 소환 범위
-    // =========================================================
 
     private float GetActualSummonRange()
     {
@@ -460,10 +478,6 @@ public class SummonManager : MonoBehaviour
 
         return fallbackSummonRange;
     }
-
-    // =========================================================
-    // 프리뷰 범위 제한
-    // =========================================================
 
     private Vector2 ClampPositionInsideSummonRange(
         Vector2 targetPosition)
@@ -487,10 +501,6 @@ public class SummonManager : MonoBehaviour
         return center +
             clampedOffset;
     }
-
-    // =========================================================
-    // 배치 가능 여부
-    // =========================================================
 
     private bool CheckPlacementValid(
         Vector2 position)
@@ -532,17 +542,9 @@ public class SummonManager : MonoBehaviour
                 blockedLayers
             );
 
-        if (blocked != null)
-        {
-            return false;
-        }
-
-        return true;
+        return blocked ==
+            null;
     }
-
-    // =========================================================
-    // 프리뷰 색
-    // =========================================================
 
     private void UpdatePreviewColor()
     {
@@ -560,13 +562,11 @@ public class SummonManager : MonoBehaviour
              i < previewRenderers.Length;
              i++)
         {
-            if (previewRenderers[i] == null)
+            if (previewRenderers[i] != null)
             {
-                continue;
+                previewRenderers[i].color =
+                    color;
             }
-
-            previewRenderers[i].color =
-                color;
         }
     }
 
@@ -582,7 +582,6 @@ public class SummonManager : MonoBehaviour
                 true;
 
             CancelPlacement();
-
             return;
         }
 
@@ -601,7 +600,7 @@ public class SummonManager : MonoBehaviour
     }
 
     // =========================================================
-    // 소환
+    // 실제 소환
     // =========================================================
 
     private void PlaceSummon()
@@ -630,17 +629,68 @@ public class SummonManager : MonoBehaviour
             return;
         }
 
-        Instantiate(
-            slot.summonPrefab,
-            currentPlacementPosition,
-            Quaternion.identity
+        // =====================================================
+        // 소환진 PNG 자동 생성
+        // =====================================================
+
+        if (slot.summonCircleSprite != null)
+        {
+            CreateSummonCircle(
+                slot.summonCircleSprite,
+                currentPlacementPosition
+            );
+        }
+
+        // =====================================================
+        // 소환수 생성
+        // =====================================================
+
+        GameObject summonObject =
+            Instantiate(
+                slot.summonPrefab,
+                currentPlacementPosition,
+                Quaternion.identity
+            );
+
+        // =====================================================
+        // 소환수 등장 연출
+        // =====================================================
+
+        StartCoroutine(
+            PlaySummonAppearance(
+                summonObject
+            )
         );
 
+        // 기존 SummonUnitBase 소환 보호는 그대로 실행
+        SummonUnitBase summonUnit =
+            summonObject
+                .GetComponent<SummonUnitBase>();
+
+        if (summonUnit == null)
+        {
+            summonUnit =
+                summonObject
+                    .GetComponentInChildren<SummonUnitBase>(
+                        true
+                    );
+        }
+
+        if (summonUnit != null)
+        {
+            summonUnit
+                .BeginSummonAppearance();
+        }
+
+        // =====================================================
         // 리벨 소환 모션
+        // =====================================================
+
         if (ribel != null)
         {
             RibelController controller =
-                ribel.GetComponent<RibelController>();
+                ribel
+                    .GetComponent<RibelController>();
 
             if (controller != null)
             {
@@ -648,6 +698,10 @@ public class SummonManager : MonoBehaviour
                     .PlaySummonMotion();
             }
         }
+
+        // =====================================================
+        // 비용 처리
+        // =====================================================
 
         currentMana -=
             slot.manaCost;
@@ -669,10 +723,6 @@ public class SummonManager : MonoBehaviour
                 maxCapacity
             );
 
-        // =====================================================
-        // ★ 소환 성공 시 카드가 아래로 복귀
-        // =====================================================
-
         if (slotVisuals != null &&
             selectedSlotIndex <
             slotVisuals.Length &&
@@ -684,14 +734,340 @@ public class SummonManager : MonoBehaviour
             ].PlaySummonReturn();
         }
 
-        // 선택 자체도 해제
-        selectedSlotIndex = -1;
+        selectedSlotIndex =
+            -1;
 
         ExitPlacementMode();
     }
 
     // =========================================================
-    // 배치 취소
+    // 소환진 자동 생성
+    // =========================================================
+
+    private void CreateSummonCircle(
+        Sprite sprite,
+        Vector2 position)
+    {
+        GameObject circleObject =
+            new GameObject(
+                "SummonCircle"
+            );
+
+        circleObject.transform.position =
+            position;
+
+        SpriteRenderer renderer =
+            circleObject.AddComponent<SpriteRenderer>();
+
+        renderer.sprite =
+            sprite;
+
+        renderer.color =
+            Color.white;
+
+        renderer.sortingOrder =
+            circleSortingOrder;
+
+        StartCoroutine(
+            PlaySummonCircle(
+                circleObject,
+                renderer
+            )
+        );
+    }
+
+    private IEnumerator PlaySummonCircle(
+        GameObject circleObject,
+        SpriteRenderer renderer)
+    {
+        Transform t =
+            circleObject.transform;
+
+        Vector3 baseScale =
+            Vector3.one;
+
+        t.localScale =
+            baseScale *
+            circleStartScale;
+
+        Color baseColor =
+            renderer.color;
+
+        baseColor.a =
+            1f;
+
+        renderer.color =
+            baseColor;
+
+        // =====================================================
+        // 팍 커짐
+        // =====================================================
+
+        float timer = 0f;
+
+        while (timer <
+               circleBurstTime)
+        {
+            timer +=
+                Time.deltaTime;
+
+            float p =
+                Mathf.Clamp01(
+                    timer /
+                    circleBurstTime
+                );
+
+            float eased =
+                1f -
+                Mathf.Pow(
+                    1f - p,
+                    3f
+                );
+
+            float scale =
+                Mathf.Lerp(
+                    circleStartScale,
+                    circlePeakScale,
+                    eased
+                );
+
+            t.localScale =
+                baseScale *
+                scale;
+
+            yield return null;
+        }
+
+        t.localScale =
+            baseScale *
+            circlePeakScale;
+
+        // =====================================================
+        // 잠깐 유지
+        // =====================================================
+
+        if (circleHoldTime > 0f)
+        {
+            yield return
+                new WaitForSeconds(
+                    circleHoldTime
+                );
+        }
+
+        // =====================================================
+        // 퍼지며 소멸
+        // =====================================================
+
+        timer = 0f;
+
+        while (timer <
+               circleFadeTime)
+        {
+            timer +=
+                Time.deltaTime;
+
+            float p =
+                Mathf.Clamp01(
+                    timer /
+                    circleFadeTime
+                );
+
+            float scale =
+                Mathf.Lerp(
+                    circlePeakScale,
+                    circleEndScale,
+                    p
+                );
+
+            t.localScale =
+                baseScale *
+                scale;
+
+            Color color =
+                baseColor;
+
+            color.a =
+                Mathf.Lerp(
+                    1f,
+                    0f,
+                    p
+                );
+
+            renderer.color =
+                color;
+
+            yield return null;
+        }
+
+        Destroy(
+            circleObject
+        );
+    }
+
+    // =========================================================
+    // 소환수 자동 등장 연출
+    // =========================================================
+
+    private IEnumerator PlaySummonAppearance(
+        GameObject summonObject)
+    {
+        if (summonObject == null)
+        {
+            yield break;
+        }
+
+        SpriteRenderer[] renderers =
+            summonObject
+                .GetComponentsInChildren<SpriteRenderer>(
+                    true
+                );
+
+        if (renderers == null ||
+            renderers.Length == 0)
+        {
+            yield break;
+        }
+
+        Color[] originalColors =
+            new Color[
+                renderers.Length
+            ];
+
+        for (int i = 0;
+             i < renderers.Length;
+             i++)
+        {
+            originalColors[i] =
+                renderers[i].color;
+
+            Color transparent =
+                originalColors[i];
+
+            transparent.a =
+                0f;
+
+            renderers[i].color =
+                transparent;
+        }
+
+        Transform summonTransform =
+            summonObject.transform;
+
+        Vector3 originalScale =
+            summonTransform.localScale;
+
+        Vector3 originalPosition =
+            summonTransform.position;
+
+        summonTransform.localScale =
+            originalScale *
+            summonStartScale;
+
+        summonTransform.position =
+            originalPosition +
+            Vector3.down *
+            summonRiseDistance;
+
+        float timer = 0f;
+
+        float duration =
+            Mathf.Max(
+                0.01f,
+                summonAppearTime
+            );
+
+        while (timer <
+               duration)
+        {
+            if (summonObject == null)
+            {
+                yield break;
+            }
+
+            timer +=
+                Time.deltaTime;
+
+            float p =
+                Mathf.Clamp01(
+                    timer /
+                    duration
+                );
+
+            float eased =
+                1f -
+                Mathf.Pow(
+                    1f - p,
+                    3f
+                );
+
+            summonTransform.localScale =
+                Vector3.Lerp(
+                    originalScale *
+                    summonStartScale,
+                    originalScale,
+                    eased
+                );
+
+            summonTransform.position =
+                Vector3.Lerp(
+                    originalPosition +
+                    Vector3.down *
+                    summonRiseDistance,
+                    originalPosition,
+                    eased
+                );
+
+            for (int i = 0;
+                 i < renderers.Length;
+                 i++)
+            {
+                if (renderers[i] == null)
+                {
+                    continue;
+                }
+
+                Color color =
+                    originalColors[i];
+
+                color.a =
+                    Mathf.Lerp(
+                        0f,
+                        originalColors[i].a,
+                        eased
+                    );
+
+                renderers[i].color =
+                    color;
+            }
+
+            yield return null;
+        }
+
+        if (summonObject == null)
+        {
+            yield break;
+        }
+
+        summonTransform.localScale =
+            originalScale;
+
+        summonTransform.position =
+            originalPosition;
+
+        for (int i = 0;
+             i < renderers.Length;
+             i++)
+        {
+            if (renderers[i] != null)
+            {
+                renderers[i].color =
+                    originalColors[i];
+            }
+        }
+    }
+
+    // =========================================================
+    // 취소
     // =========================================================
 
     public void CancelPlacement()
@@ -707,13 +1083,10 @@ public class SummonManager : MonoBehaviour
         ExitPlacementMode();
     }
 
-    // =========================================================
-    // 배치 종료
-    // =========================================================
-
     private void ExitPlacementMode()
     {
-        isPlacementMode = false;
+        isPlacementMode =
+            false;
 
         DestroyPreview();
 
@@ -731,10 +1104,6 @@ public class SummonManager : MonoBehaviour
             );
         }
     }
-
-    // =========================================================
-    // 프리뷰 삭제
-    // =========================================================
 
     private void DestroyPreview()
     {
@@ -756,7 +1125,8 @@ public class SummonManager : MonoBehaviour
     // 마나
     // =========================================================
 
-    public void AddMana(float amount)
+    public void AddMana(
+        float amount)
     {
         if (amount <= 0f)
         {
@@ -791,7 +1161,8 @@ public class SummonManager : MonoBehaviour
 
         if (currentCapacity < 0)
         {
-            currentCapacity = 0;
+            currentCapacity =
+                0;
         }
     }
 
@@ -834,6 +1205,54 @@ public class SummonManager : MonoBehaviour
             Mathf.Max(
                 0.05f,
                 placementCheckRadius
+            );
+
+        circleStartScale =
+            Mathf.Max(
+                0.01f,
+                circleStartScale
+            );
+
+        circlePeakScale =
+            Mathf.Max(
+                circleStartScale,
+                circlePeakScale
+            );
+
+        circleEndScale =
+            Mathf.Max(
+                circlePeakScale,
+                circleEndScale
+            );
+
+        circleBurstTime =
+            Mathf.Max(
+                0.01f,
+                circleBurstTime
+            );
+
+        circleHoldTime =
+            Mathf.Max(
+                0f,
+                circleHoldTime
+            );
+
+        circleFadeTime =
+            Mathf.Max(
+                0.01f,
+                circleFadeTime
+            );
+
+        summonAppearTime =
+            Mathf.Max(
+                0.01f,
+                summonAppearTime
+            );
+
+        summonRiseDistance =
+            Mathf.Max(
+                0f,
+                summonRiseDistance
             );
 
         if (summonSlots == null ||

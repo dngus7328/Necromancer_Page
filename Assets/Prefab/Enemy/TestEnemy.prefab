@@ -135,8 +135,10 @@ MonoBehaviour:
   maxHealth: 100
   manaReward: 10
   moveSpeed: 1
+  turnResponsiveness: 12
   attackDamage: 10
   attackRange: 0.8
+  attackResumeDistance: 1
   attackInterval: 1.2
   targetType: 0
   summonLayer:
@@ -268,7 +270,7 @@ Rigidbody2D:
   m_Interpolate: 0
   m_SleepingMode: 1
   m_CollisionDetection: 0
-  m_Constraints: 0
+  m_Constraints: 4
 --- !u!1 &4531622462942123431
 GameObject:
   m_ObjectHideFlags: 0
