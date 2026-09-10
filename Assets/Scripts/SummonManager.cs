@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class SummonManager : MonoBehaviour
 {
@@ -21,6 +22,10 @@ public class SummonManager : MonoBehaviour
         [Header("비용")]
         public float manaCost = 20f;
         public int capacityCost = 1;
+
+        [Header("쿨타임")]
+        [Tooltip("이 소환수를 다시 사용할 수 있을 때까지의 시간")]
+        public float cooldown = 8f;
     }
 
     [Header("소환 슬롯 1~8")]
@@ -32,6 +37,12 @@ public class SummonManager : MonoBehaviour
     [SerializeField]
     private SummonSlotVisual[] slotVisuals =
         new SummonSlotVisual[8];
+
+    [Header("쿨타임 UI")]
+    [Tooltip("각 슬롯의 CooldownFill Image를 1~8 순서대로 연결")]
+    [SerializeField]
+    private Image[] cooldownFills =
+        new Image[8];
 
     [Header("마나")]
     [SerializeField] private float maxMana = 100f;
@@ -107,6 +118,13 @@ public class SummonManager : MonoBehaviour
 
     private bool shouldBlockRibelMoveThisFrame;
 
+    // =========================================================
+    // 슬롯별 현재 남은 쿨타임
+    // =========================================================
+
+    private float[] remainingCooldowns =
+        new float[8];
+
     public bool IsPlacementMode =>
         isPlacementMode;
 
@@ -124,6 +142,10 @@ public class SummonManager : MonoBehaviour
 
     public int MaxCapacity =>
         maxCapacity;
+
+    // =========================================================
+    // 초기화
+    // =========================================================
 
     private void Awake()
     {
@@ -166,6 +188,13 @@ public class SummonManager : MonoBehaviour
                 0,
                 maxCapacity
             );
+
+        if (remainingCooldowns == null ||
+            remainingCooldowns.Length != 8)
+        {
+            remainingCooldowns =
+                new float[8];
+        }
     }
 
     private void Start()
@@ -185,12 +214,25 @@ public class SummonManager : MonoBehaviour
         }
 
         ClearSlotSelectionVisual();
+
+        // 게임 시작 시 모든 쿨타임은 준비 완료 상태
+        for (int i = 0;
+             i < remainingCooldowns.Length;
+             i++)
+        {
+            remainingCooldowns[i] =
+                0f;
+        }
+
+        UpdateCooldownUI();
     }
 
     private void Update()
     {
         shouldBlockRibelMoveThisFrame =
             false;
+
+        UpdateCooldowns();
 
         HandleSlotInput();
 
@@ -201,6 +243,138 @@ public class SummonManager : MonoBehaviour
 
         UpdatePlacementPreview();
         HandlePlacementInput();
+    }
+
+    // =========================================================
+    // 쿨타임
+    // =========================================================
+
+    private void UpdateCooldowns()
+    {
+        if (remainingCooldowns == null)
+        {
+            return;
+        }
+
+        for (int i = 0;
+             i < remainingCooldowns.Length;
+             i++)
+        {
+            if (remainingCooldowns[i] <= 0f)
+            {
+                remainingCooldowns[i] =
+                    0f;
+
+                continue;
+            }
+
+            remainingCooldowns[i] -=
+                Time.deltaTime;
+
+            if (remainingCooldowns[i] < 0f)
+            {
+                remainingCooldowns[i] =
+                    0f;
+            }
+        }
+
+        UpdateCooldownUI();
+    }
+
+    private void UpdateCooldownUI()
+    {
+        if (cooldownFills == null)
+        {
+            return;
+        }
+
+        for (int i = 0;
+             i < cooldownFills.Length;
+             i++)
+        {
+            Image fill =
+                cooldownFills[i];
+
+            if (fill == null)
+            {
+                continue;
+            }
+
+            if (i >= summonSlots.Length ||
+                summonSlots[i] == null)
+            {
+                fill.fillAmount =
+                    0f;
+
+                continue;
+            }
+
+            float totalCooldown =
+                Mathf.Max(
+                    0.01f,
+                    summonSlots[i].cooldown
+                );
+
+            float remaining =
+                0f;
+
+            if (i < remainingCooldowns.Length)
+            {
+                remaining =
+                    remainingCooldowns[i];
+            }
+
+            // 소환 직후 = 1
+            // 쿨타임 완료 = 0
+            fill.fillAmount =
+                Mathf.Clamp01(
+                    remaining /
+                    totalCooldown
+                );
+        }
+    }
+
+    private bool IsSlotOnCooldown(
+        int slotIndex)
+    {
+        if (slotIndex < 0 ||
+            slotIndex >=
+            remainingCooldowns.Length)
+        {
+            return false;
+        }
+
+        return remainingCooldowns[slotIndex] >
+            0f;
+    }
+
+    private void StartCooldown(
+        int slotIndex)
+    {
+        if (slotIndex < 0 ||
+            slotIndex >=
+            remainingCooldowns.Length ||
+            slotIndex >=
+            summonSlots.Length)
+        {
+            return;
+        }
+
+        SummonSlot slot =
+            summonSlots[slotIndex];
+
+        if (slot == null)
+        {
+            return;
+        }
+
+        remainingCooldowns[slotIndex] =
+            Mathf.Max(
+                0f,
+                slot.cooldown
+            );
+
+        UpdateCooldownUI();
     }
 
     // =========================================================
@@ -270,6 +444,16 @@ public class SummonManager : MonoBehaviour
 
         if (slot == null ||
             slot.summonPrefab == null)
+        {
+            return;
+        }
+
+        // =====================================================
+        // 쿨타임 중에는 해당 슬롯 사용 불가
+        // =====================================================
+
+        if (IsSlotOnCooldown(
+                slotIndex))
         {
             return;
         }
@@ -351,6 +535,13 @@ public class SummonManager : MonoBehaviour
         if (selectedSlotIndex < 0 ||
             selectedSlotIndex >=
             summonSlots.Length)
+        {
+            return;
+        }
+
+        // 쿨타임 중이라면 배치 모드 진입 금지
+        if (IsSlotOnCooldown(
+                selectedSlotIndex))
         {
             return;
         }
@@ -512,6 +703,13 @@ public class SummonManager : MonoBehaviour
             return false;
         }
 
+        // 쿨타임이면 배치 불가
+        if (IsSlotOnCooldown(
+                selectedSlotIndex))
+        {
+            return false;
+        }
+
         SummonSlot slot =
             summonSlots[
                 selectedSlotIndex
@@ -612,13 +810,22 @@ public class SummonManager : MonoBehaviour
             return;
         }
 
+        int usedSlotIndex =
+            selectedSlotIndex;
+
         SummonSlot slot =
             summonSlots[
-                selectedSlotIndex
+                usedSlotIndex
             ];
 
         if (slot == null ||
             slot.summonPrefab == null)
+        {
+            return;
+        }
+
+        if (IsSlotOnCooldown(
+                usedSlotIndex))
         {
             return;
         }
@@ -630,7 +837,7 @@ public class SummonManager : MonoBehaviour
         }
 
         // =====================================================
-        // 소환진 PNG 자동 생성
+        // 소환진
         // =====================================================
 
         if (slot.summonCircleSprite != null)
@@ -662,7 +869,6 @@ public class SummonManager : MonoBehaviour
             )
         );
 
-        // 기존 SummonUnitBase 소환 보호는 그대로 실행
         SummonUnitBase summonUnit =
             summonObject
                 .GetComponent<SummonUnitBase>();
@@ -723,14 +929,22 @@ public class SummonManager : MonoBehaviour
                 maxCapacity
             );
 
+        // =====================================================
+        // ★ 쿨타임 시작
+        // =====================================================
+
+        StartCooldown(
+            usedSlotIndex
+        );
+
         if (slotVisuals != null &&
-            selectedSlotIndex <
+            usedSlotIndex <
             slotVisuals.Length &&
-            slotVisuals[selectedSlotIndex] !=
+            slotVisuals[usedSlotIndex] !=
             null)
         {
             slotVisuals[
-                selectedSlotIndex
+                usedSlotIndex
             ].PlaySummonReturn();
         }
 
@@ -799,11 +1013,8 @@ public class SummonManager : MonoBehaviour
         renderer.color =
             baseColor;
 
-        // =====================================================
-        // 팍 커짐
-        // =====================================================
-
-        float timer = 0f;
+        float timer =
+            0f;
 
         while (timer <
                circleBurstTime)
@@ -842,10 +1053,6 @@ public class SummonManager : MonoBehaviour
             baseScale *
             circlePeakScale;
 
-        // =====================================================
-        // 잠깐 유지
-        // =====================================================
-
         if (circleHoldTime > 0f)
         {
             yield return
@@ -854,11 +1061,8 @@ public class SummonManager : MonoBehaviour
                 );
         }
 
-        // =====================================================
-        // 퍼지며 소멸
-        // =====================================================
-
-        timer = 0f;
+        timer =
+            0f;
 
         while (timer <
                circleFadeTime)
@@ -968,7 +1172,8 @@ public class SummonManager : MonoBehaviour
             Vector3.down *
             summonRiseDistance;
 
-        float timer = 0f;
+        float timer =
+            0f;
 
         float duration =
             Mathf.Max(
@@ -1271,6 +1476,38 @@ public class SummonManager : MonoBehaviour
                 ref slotVisuals,
                 8
             );
+        }
+
+        if (cooldownFills == null ||
+            cooldownFills.Length != 8)
+        {
+            System.Array.Resize(
+                ref cooldownFills,
+                8
+            );
+        }
+
+        if (remainingCooldowns == null ||
+            remainingCooldowns.Length != 8)
+        {
+            System.Array.Resize(
+                ref remainingCooldowns,
+                8
+            );
+        }
+
+        for (int i = 0;
+             i < summonSlots.Length;
+             i++)
+        {
+            if (summonSlots[i] != null)
+            {
+                summonSlots[i].cooldown =
+                    Mathf.Max(
+                        0f,
+                        summonSlots[i].cooldown
+                    );
+            }
         }
     }
 #endif
