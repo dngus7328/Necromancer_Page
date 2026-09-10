@@ -120,7 +120,7 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 1645092829
-  m_SortingLayer: 1
+  m_SortingLayer: 2
   m_SortingOrder: 0
   m_Sprite: {fileID: 1129072443, guid: fc75c1363e3e44144b87e0e597f5f1b6, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -203,8 +203,8 @@ SpriteRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
+  m_SortingLayerID: 1645092829
+  m_SortingLayer: 2
   m_SortingOrder: 4
   m_Sprite: {fileID: 7482667652216324306, guid: 311925a002f4447b3a28927169b83ea6, type: 3}
   m_Color: {r: 0.60401565, g: 1, b: 0.5137255, a: 1}
@@ -287,8 +287,8 @@ SpriteRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
+  m_SortingLayerID: 1645092829
+  m_SortingLayer: 2
   m_SortingOrder: 3
   m_Sprite: {fileID: 7482667652216324306, guid: 311925a002f4447b3a28927169b83ea6, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -444,8 +444,8 @@ MonoBehaviour:
     m_Bits: 256
   detectionRange: 5
   searchInterval: 0.2
-  attackRange: 0.8
-  attackKeepRange: 1.2
+  attackRange: 0.45
+  attackKeepRange: 0.7
   attackDamage: 20
   attackInterval: 1
   postAttackHoldTime: 0.18
@@ -583,6 +583,7 @@ MonoBehaviour:
   - {fileID: -1259186653, guid: d1c3e47bbb1874d4eb1f8a33d76faedd, type: 3}
   - {fileID: 272453411, guid: d1c3e47bbb1874d4eb1f8a33d76faedd, type: 3}
   - {fileID: -2056831067, guid: d1c3e47bbb1874d4eb1f8a33d76faedd, type: 3}
+  hitColumns: 2
   hitFrameRate: 10
   deathFrames:
   - {fileID: -1598065954, guid: db1d692efa4113245ae31b581f284659, type: 3}
@@ -603,9 +604,9 @@ MonoBehaviour:
   - {fileID: 1184848156, guid: db1d692efa4113245ae31b581f284659, type: 3}
   - {fileID: -1474926518, guid: db1d692efa4113245ae31b581f284659, type: 3}
   - {fileID: 1155225413, guid: db1d692efa4113245ae31b581f284659, type: 3}
-  deathColumns: 4
+  deathColumns: 6
   deathFrameRate: 8
-  deathHoldTime: 0.6
+  deathHoldTime: 0.9
   deathFadeTime: 0.7
   hitFlashColor: {r: 1, g: 0.35, b: 0.35, a: 1}
   hitFlashDuration: 0.09

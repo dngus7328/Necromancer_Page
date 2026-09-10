@@ -4,6 +4,16 @@ using UnityEngine;
 
 public class SummonVisualController : MonoBehaviour
 {
+    // =========================================================
+    // 방향 방식
+    // =========================================================
+
+    public enum DirectionMode
+    {
+        ThreeDirections,
+        FiveDirections
+    }
+
     private enum MotionType
     {
         Idle,
@@ -16,53 +26,151 @@ public class SummonVisualController : MonoBehaviour
     private enum FacingType
     {
         Down,
+        DownRight,
         Right,
+        UpRight,
         Up,
-        Left
+        UpLeft,
+        Left,
+        DownLeft
     }
 
+    // =========================================================
+    // 기본 설정
+    // =========================================================
+
     [Header("참조")]
-    [SerializeField] private SpriteRenderer spriteRenderer;
+    [SerializeField]
+    private SpriteRenderer spriteRenderer;
 
-    [Header("방향 안정화")]
-    [Tooltip("가로/세로 차이가 이 값보다 작으면 현재 방향 유지")]
-    [SerializeField] private float directionSwitchMargin = 0.15f;
+    [Header("방향 설정")]
+    [Tooltip(
+        "ThreeDirections = 아래/오른쪽/위\n" +
+        "FiveDirections = 아래/우하/오른쪽/우상/위"
+    )]
+    [SerializeField]
+    private DirectionMode directionMode =
+        DirectionMode.ThreeDirections;
 
-    [Header("IDLE - 아래 / 오른쪽 / 위")]
-    [SerializeField] private Sprite[] idleFrames;
-    [SerializeField] private int idleColumns = 4;
-    [SerializeField] private float idleFrameRate = 5f;
+    [Tooltip("3방향 전환이 너무 자주 튀는 것을 줄여주는 값")]
+    [Range(0f, 0.5f)]
+    [SerializeField]
+    private float directionSwitchMargin = 0.15f;
 
-    [Header("WALK - 아래 / 오른쪽 / 위")]
-    [SerializeField] private Sprite[] walkFrames;
-    [SerializeField] private int walkColumns = 6;
-    [SerializeField] private float walkFrameRate = 8f;
+    // =========================================================
+    // Idle
+    // =========================================================
 
-    [Header("ATTACK - 아래 / 오른쪽 / 위")]
-    [SerializeField] private Sprite[] attackFrames;
-    [SerializeField] private int attackColumns = 5;
-    [SerializeField] private float attackFrameRate = 10f;
+    [Header("IDLE")]
+    [Tooltip(
+        "3방향: Down → Right → Up\n" +
+        "5방향: Down → DownRight → Right → UpRight → Up"
+    )]
+    [SerializeField]
+    private Sprite[] idleFrames;
 
-    [Tooltip("실제 데미지가 들어가는 프레임. 첫 프레임 = 0")]
-    [SerializeField] private int attackHitFrame = 2;
+    [Tooltip("방향 하나당 프레임 수")]
+    [Min(1)]
+    [SerializeField]
+    private int idleColumns = 4;
+
+    [Min(0.1f)]
+    [SerializeField]
+    private float idleFrameRate = 5f;
+
+    // =========================================================
+    // Walk
+    // =========================================================
+
+    [Header("WALK")]
+    [Tooltip(
+        "3방향: Down → Right → Up\n" +
+        "5방향: Down → DownRight → Right → UpRight → Up\n" +
+        "Flying / Floating은 비워둬도 됩니다."
+    )]
+    [SerializeField]
+    private Sprite[] walkFrames;
+
+    [Tooltip("방향 하나당 프레임 수")]
+    [Min(1)]
+    [SerializeField]
+    private int walkColumns = 6;
+
+    [Min(0.1f)]
+    [SerializeField]
+    private float walkFrameRate = 8f;
+
+    // =========================================================
+    // Attack
+    // =========================================================
+
+    [Header("ATTACK")]
+    [Tooltip(
+        "3방향: Down → Right → Up\n" +
+        "5방향: Down → DownRight → Right → UpRight → Up"
+    )]
+    [SerializeField]
+    private Sprite[] attackFrames;
+
+    [Tooltip("방향 하나당 프레임 수")]
+    [Min(1)]
+    [SerializeField]
+    private int attackColumns = 5;
+
+    [Min(0.1f)]
+    [SerializeField]
+    private float attackFrameRate = 10f;
+
+    [Tooltip("실제로 공격 판정이 발생하는 프레임")]
+    [Min(0)]
+    [SerializeField]
+    private int attackHitFrame = 2;
+
+    // =========================================================
+    // Hit
+    // =========================================================
 
     [Header("HIT - 공통")]
-    [SerializeField] private Sprite[] hitFrames;
-    [SerializeField] private float hitFrameRate = 10f;
+    [Tooltip("피격은 현재 방향 공통 프레임을 사용")]
+    [SerializeField]
+    private Sprite[] hitFrames;
 
-    [Header("DEATH - 아래 / 오른쪽 / 위")]
-    [SerializeField] private Sprite[] deathFrames;
+    [Min(0.1f)]
+    [SerializeField]
+    private float hitFrameRate = 10f;
 
-    [Tooltip("한 방향당 Death 프레임 개수")]
-    [SerializeField] private int deathColumns = 4;
+    // =========================================================
+    // Death
+    // =========================================================
 
-    [SerializeField] private float deathFrameRate = 8f;
+    [Header("DEATH")]
+    [Tooltip(
+        "3방향: Down → Right → Up\n" +
+        "5방향: Down → DownRight → Right → UpRight → Up"
+    )]
+    [SerializeField]
+    private Sprite[] deathFrames;
 
-    [Tooltip("죽음 애니메이션 종료 후 마지막 프레임 유지 시간")]
-    [SerializeField] private float deathHoldTime = 0.6f;
+    [Tooltip("방향 하나당 프레임 수")]
+    [Min(1)]
+    [SerializeField]
+    private int deathColumns = 4;
 
-    [Tooltip("쓰러진 모습이 서서히 사라지는 시간")]
-    [SerializeField] private float deathFadeTime = 0.7f;
+    [Min(0.1f)]
+    [SerializeField]
+    private float deathFrameRate = 8f;
+
+    [Min(0f)]
+    [SerializeField]
+    private float deathHoldTime = 0.6f;
+
+    [Min(0f)]
+    [SerializeField]
+    private float deathFadeTime = 0.7f;
+
+    // =========================================================
+    // 피격 피드백
+    // =========================================================
 
     [Header("피격 피드백")]
     [SerializeField]
@@ -74,15 +182,35 @@ public class SummonVisualController : MonoBehaviour
             1f
         );
 
-    [SerializeField] private float hitFlashDuration = 0.09f;
+    [Min(0.01f)]
+    [SerializeField]
+    private float hitFlashDuration = 0.09f;
+
+    // =========================================================
+    // 소환 등장
+    // =========================================================
 
     [Header("소환 등장")]
-    [SerializeField] private float summonAppearDuration = 0.22f;
+    [Min(0.01f)]
+    [SerializeField]
+    private float summonAppearDuration = 0.22f;
 
     [Range(0.1f, 1f)]
-    [SerializeField] private float summonStartScale = 0.82f;
+    [SerializeField]
+    private float summonStartScale = 0.82f;
 
-    [SerializeField] private float summonRiseDistance = 0.12f;
+    [Min(0f)]
+    [SerializeField]
+    private float summonRiseDistance = 0.12f;
+
+    // =========================================================
+    // Runtime
+    // =========================================================
+
+    private SummonData summonData;
+
+    private SummonMovementType movementType =
+        SummonMovementType.Ground;
 
     private MotionType currentMotion =
         MotionType.Idle;
@@ -90,35 +218,74 @@ public class SummonVisualController : MonoBehaviour
     private FacingType currentFacing =
         FacingType.Down;
 
-    // 공격/죽음 시작 순간 방향
     private FacingType lockedActionFacing =
         FacingType.Down;
 
     private bool isMoving;
+
     private bool actionLocked;
 
     private bool isDead;
+
     private bool deathFinished;
+
     private bool isDeathSequenceRunning;
 
     private bool isSummonAppearing;
 
     private float animationTimer;
+
     private int currentFrame;
 
     private bool attackDamageTriggered;
 
     private Action attackHitCallback;
+
     private Action actionFinishedCallback;
+
+    // =========================================================
+    // Sprite 원본 상태
+    // =========================================================
 
     private Color originalColor;
 
     private Vector3 originalSpriteScale;
+
     private Vector3 originalSpriteLocalPosition;
 
+    // =========================================================
+    // 공중 / 부유
+    // =========================================================
+
+    private float hoverPhase;
+
+    private float currentHoverOffset;
+
+    private bool attackBodyMotionRunning;
+
+    // =========================================================
+    // 그림자
+    // =========================================================
+
+    private GameObject shadowObject;
+
+    private SpriteRenderer shadowRenderer;
+
+    // =========================================================
+    // Coroutine
+    // =========================================================
+
     private Coroutine hitFlashCoroutine;
+
     private Coroutine summonAppearCoroutine;
+
     private Coroutine deathSequenceCoroutine;
+
+    private Coroutine attackBodyCoroutine;
+
+    // =========================================================
+    // Property
+    // =========================================================
 
     public bool IsDead =>
         isDead;
@@ -127,7 +294,7 @@ public class SummonVisualController : MonoBehaviour
         isSummonAppearing;
 
     // =========================================================
-    // 초기화
+    // Unity
     // =========================================================
 
     private void Awake()
@@ -149,6 +316,12 @@ public class SummonVisualController : MonoBehaviour
             originalSpriteLocalPosition =
                 spriteRenderer.transform.localPosition;
         }
+
+        hoverPhase =
+            UnityEngine.Random.Range(
+                0f,
+                Mathf.PI * 2f
+            );
     }
 
     private void Start()
@@ -173,7 +346,236 @@ public class SummonVisualController : MonoBehaviour
         }
 
         UpdateAutomaticMotion();
+
         UpdateAnimation();
+
+        UpdateHover();
+
+        UpdateShadow();
+    }
+
+    // =========================================================
+    // SummonData 적용
+    // =========================================================
+
+    public void ApplySummonData(
+        SummonData data)
+    {
+        summonData =
+            data;
+
+        if (summonData == null)
+        {
+            movementType =
+                SummonMovementType.Ground;
+
+            return;
+        }
+
+        movementType =
+            summonData.MovementType;
+
+        SetupAerialVisual();
+    }
+
+    // =========================================================
+    // 공중형 초기 설정
+    // =========================================================
+
+    private void SetupAerialVisual()
+    {
+        DestroyShadow();
+
+        if (spriteRenderer == null ||
+            summonData == null)
+        {
+            return;
+        }
+
+        if (movementType ==
+            SummonMovementType.Ground)
+        {
+            spriteRenderer.transform.localPosition =
+                originalSpriteLocalPosition;
+
+            return;
+        }
+
+        // 공중 / 부유형 본체 높이
+        spriteRenderer.transform.localPosition =
+            originalSpriteLocalPosition +
+            Vector3.up *
+            summonData.HoverHeight;
+
+        // Flying만 그림자 생성
+        if (movementType !=
+            SummonMovementType.Flying)
+        {
+            return;
+        }
+
+        if (summonData.ShadowSprite == null)
+        {
+            return;
+        }
+
+        shadowObject =
+            new GameObject(
+                "Runtime_Shadow"
+            );
+
+        shadowObject.transform.SetParent(
+            transform,
+            false
+        );
+
+        shadowObject.transform.localPosition =
+            new Vector3(
+                summonData.ShadowOffset.x,
+                summonData.ShadowOffset.y,
+                0f
+            );
+
+        shadowObject.transform.localScale =
+            Vector3.one *
+            summonData.ShadowBaseScale;
+
+        shadowRenderer =
+            shadowObject.AddComponent<SpriteRenderer>();
+
+        shadowRenderer.sprite =
+            summonData.ShadowSprite;
+
+        shadowRenderer.sortingLayerName =
+            spriteRenderer.sortingLayerName;
+
+        shadowRenderer.sortingOrder =
+            spriteRenderer.sortingOrder -
+            10;
+
+        Color shadowColor =
+            Color.black;
+
+        shadowColor.a =
+            summonData.ShadowBaseAlpha;
+
+        shadowRenderer.color =
+            shadowColor;
+    }
+
+    private void DestroyShadow()
+    {
+        if (shadowObject != null)
+        {
+            Destroy(
+                shadowObject
+            );
+        }
+
+        shadowObject =
+            null;
+
+        shadowRenderer =
+            null;
+    }
+
+    // =========================================================
+    // 부유
+    // =========================================================
+
+    private void UpdateHover()
+    {
+        if (summonData == null ||
+            spriteRenderer == null ||
+            isDead ||
+            isSummonAppearing ||
+            attackBodyMotionRunning)
+        {
+            return;
+        }
+
+        if (movementType ==
+            SummonMovementType.Ground)
+        {
+            return;
+        }
+
+        hoverPhase +=
+            Time.deltaTime *
+            summonData.HoverSpeed;
+
+        currentHoverOffset =
+            Mathf.Sin(
+                hoverPhase
+            ) *
+            summonData.HoverAmplitude;
+
+        Vector3 position =
+            originalSpriteLocalPosition;
+
+        position.y +=
+            summonData.HoverHeight +
+            currentHoverOffset;
+
+        spriteRenderer.transform.localPosition =
+            position;
+    }
+
+    // =========================================================
+    // 그림자
+    // =========================================================
+
+    private void UpdateShadow()
+    {
+        if (shadowRenderer == null ||
+            shadowObject == null ||
+            summonData == null ||
+            isDead)
+        {
+            return;
+        }
+
+        float amplitude =
+            Mathf.Max(
+                0.001f,
+                summonData.HoverAmplitude
+            );
+
+        float normalizedHeight =
+            Mathf.Clamp(
+                currentHoverOffset /
+                amplitude,
+                -1f,
+                1f
+            );
+
+        // 위로 올라갈수록 그림자 작아짐
+        float scaleMultiplier =
+            1f -
+            normalizedHeight *
+            summonData.ShadowScaleVariation;
+
+        shadowObject.transform.localScale =
+            Vector3.one *
+            summonData.ShadowBaseScale *
+            scaleMultiplier;
+
+        // 위로 올라갈수록 그림자 흐려짐
+        float alpha =
+            summonData.ShadowBaseAlpha -
+            normalizedHeight *
+            summonData.ShadowAlphaVariation;
+
+        Color color =
+            shadowRenderer.color;
+
+        color.a =
+            Mathf.Clamp01(
+                alpha
+            );
+
+        shadowRenderer.color =
+            color;
     }
 
     // =========================================================
@@ -186,6 +588,7 @@ public class SummonVisualController : MonoBehaviour
         if (spriteRenderer == null)
         {
             onFinished?.Invoke();
+
             return;
         }
 
@@ -219,6 +622,9 @@ public class SummonVisualController : MonoBehaviour
         Transform spriteTransform =
             spriteRenderer.transform;
 
+        Vector3 targetPosition =
+            GetNormalSpritePosition();
+
         Color startColor =
             originalColor;
 
@@ -233,7 +639,7 @@ public class SummonVisualController : MonoBehaviour
             summonStartScale;
 
         spriteTransform.localPosition =
-            originalSpriteLocalPosition +
+            targetPosition +
             Vector3.down *
             summonRiseDistance;
 
@@ -288,10 +694,10 @@ public class SummonVisualController : MonoBehaviour
 
             spriteTransform.localPosition =
                 Vector3.Lerp(
-                    originalSpriteLocalPosition +
+                    targetPosition +
                     Vector3.down *
                     summonRiseDistance,
-                    originalSpriteLocalPosition,
+                    targetPosition,
                     eased
                 );
 
@@ -305,7 +711,7 @@ public class SummonVisualController : MonoBehaviour
             originalSpriteScale;
 
         spriteTransform.localPosition =
-            originalSpriteLocalPosition;
+            targetPosition;
 
         isSummonAppearing =
             false;
@@ -321,9 +727,649 @@ public class SummonVisualController : MonoBehaviour
         onFinished?.Invoke();
     }
 
+    private Vector3 GetNormalSpritePosition()
+    {
+        Vector3 position =
+            originalSpriteLocalPosition;
+
+        if (summonData != null &&
+            movementType !=
+            SummonMovementType.Ground)
+        {
+            position.y +=
+                summonData.HoverHeight;
+        }
+
+        return position;
+    }
+
     // =========================================================
-    // 피격 점멸
+    // 이동 상태
     // =========================================================
+
+    public void SetMoving(
+        bool moving)
+    {
+        if (isDead ||
+            isSummonAppearing)
+        {
+            isMoving =
+                false;
+
+            return;
+        }
+
+        isMoving =
+            moving;
+    }
+
+    // =========================================================
+    // 방향
+    // =========================================================
+
+    public void SetFacingDirection(
+        Vector2 direction)
+    {
+        if (actionLocked ||
+            isSummonAppearing ||
+            direction.sqrMagnitude <=
+            0.0001f)
+        {
+            return;
+        }
+
+        direction.Normalize();
+
+        currentFacing =
+            DetermineFacing(
+                direction
+            );
+
+        UpdateCurrentSprite();
+    }
+
+    public void SetCombatFacingDirection(
+        Vector2 direction)
+    {
+        if (isDead ||
+            actionLocked ||
+            direction.sqrMagnitude <=
+            0.0001f)
+        {
+            return;
+        }
+
+        direction.Normalize();
+
+        currentFacing =
+            DetermineFacingImmediate(
+                direction
+            );
+
+        UpdateCurrentSprite();
+    }
+
+    // =========================================================
+    // 방향 판정
+    // =========================================================
+
+    private FacingType DetermineFacing(
+        Vector2 direction)
+    {
+        if (directionMode ==
+            DirectionMode.FiveDirections)
+        {
+            return DetermineFiveDirection(
+                direction
+            );
+        }
+
+        return DetermineThreeDirection(
+            direction
+        );
+    }
+
+    private FacingType DetermineFacingImmediate(
+        Vector2 direction)
+    {
+        if (directionMode ==
+            DirectionMode.FiveDirections)
+        {
+            return DetermineFiveDirection(
+                direction
+            );
+        }
+
+        float absX =
+            Mathf.Abs(
+                direction.x
+            );
+
+        float absY =
+            Mathf.Abs(
+                direction.y
+            );
+
+        if (absX >= absY)
+        {
+            return direction.x >= 0f
+                ? FacingType.Right
+                : FacingType.Left;
+        }
+
+        return direction.y >= 0f
+            ? FacingType.Up
+            : FacingType.Down;
+    }
+
+    // =========================================================
+    // 3방향
+    // =========================================================
+
+    private FacingType DetermineThreeDirection(
+        Vector2 direction)
+    {
+        float absX =
+            Mathf.Abs(
+                direction.x
+            );
+
+        float absY =
+            Mathf.Abs(
+                direction.y
+            );
+
+        if (absX >
+            absY +
+            directionSwitchMargin)
+        {
+            return direction.x >= 0f
+                ? FacingType.Right
+                : FacingType.Left;
+        }
+
+        if (absY >
+            absX +
+            directionSwitchMargin)
+        {
+            return direction.y >= 0f
+                ? FacingType.Up
+                : FacingType.Down;
+        }
+
+        return currentFacing;
+    }
+
+    // =========================================================
+    // 5방향
+    //
+    // 실제로는 좌측 flip까지 합쳐 8방향처럼 보임.
+    //
+    // 위
+    // 우상
+    // 오른쪽
+    // 우하
+    // 아래
+    //
+    // 왼쪽 계열은 flipX
+    // =========================================================
+
+    private FacingType DetermineFiveDirection(
+        Vector2 direction)
+    {
+        if (direction.sqrMagnitude <=
+            0.0001f)
+        {
+            return currentFacing;
+        }
+
+        direction.Normalize();
+
+        bool left =
+            direction.x < 0f;
+
+        float absX =
+            Mathf.Abs(
+                direction.x
+            );
+
+        float angle =
+            Mathf.Atan2(
+                direction.y,
+                absX
+            ) *
+            Mathf.Rad2Deg;
+
+        // 거의 위
+        if (angle >= 67.5f)
+        {
+            return FacingType.Up;
+        }
+
+        // 위 대각선
+        if (angle >= 22.5f)
+        {
+            return left
+                ? FacingType.UpLeft
+                : FacingType.UpRight;
+        }
+
+        // 좌 / 우
+        if (angle > -22.5f)
+        {
+            return left
+                ? FacingType.Left
+                : FacingType.Right;
+        }
+
+        // 아래 대각선
+        if (angle > -67.5f)
+        {
+            return left
+                ? FacingType.DownLeft
+                : FacingType.DownRight;
+        }
+
+        // 거의 아래
+        return FacingType.Down;
+    }
+
+    // =========================================================
+    // 자동 Idle / Walk
+    // =========================================================
+
+    private void UpdateAutomaticMotion()
+    {
+        if (isDead ||
+            actionLocked ||
+            isSummonAppearing)
+        {
+            return;
+        }
+
+        // 지상형만 Walk
+        if (movementType ==
+            SummonMovementType.Ground)
+        {
+            ChangeMotion(
+                isMoving
+                    ? MotionType.Walk
+                    : MotionType.Idle
+            );
+        }
+        else
+        {
+            // Flying / Floating은
+            // 이동해도 기본 비행/부유 Idle 사용
+            ChangeMotion(
+                MotionType.Idle
+            );
+        }
+    }
+
+    // =========================================================
+    // 공격
+    // =========================================================
+
+    public void PlayAttack(
+        Action onHit = null,
+        Action onFinished = null)
+    {
+        if (isDead ||
+            isSummonAppearing)
+        {
+            return;
+        }
+
+        lockedActionFacing =
+            currentFacing;
+
+        attackHitCallback =
+            onHit;
+
+        actionFinishedCallback =
+            onFinished;
+
+        attackDamageTriggered =
+            false;
+
+        actionLocked =
+            true;
+
+        currentMotion =
+            MotionType.Attack;
+
+        currentFrame =
+            0;
+
+        animationTimer =
+            0f;
+
+        StartAttackBodyMotion();
+
+        if (!HasEnoughDirectionalFrames(
+                attackFrames,
+                attackColumns
+            ))
+        {
+            TriggerAttackHit();
+
+            FinishAttackMotion();
+
+            return;
+        }
+
+        UpdateCurrentSprite();
+
+        if (attackHitFrame <= 0)
+        {
+            TriggerAttackHit();
+        }
+    }
+
+    // =========================================================
+    // 공격 몸동작
+    // =========================================================
+
+    private void StartAttackBodyMotion()
+    {
+        if (summonData == null ||
+            summonData.AttackMotionType ==
+            SummonAttackMotionType.None)
+        {
+            return;
+        }
+
+        if (attackBodyCoroutine != null)
+        {
+            StopCoroutine(
+                attackBodyCoroutine
+            );
+        }
+
+        attackBodyCoroutine =
+            StartCoroutine(
+                AttackBodyMotionRoutine()
+            );
+    }
+
+    private IEnumerator AttackBodyMotionRoutine()
+    {
+        attackBodyMotionRunning =
+            true;
+
+        Vector2 direction =
+            FacingToVector(
+                lockedActionFacing
+            );
+
+        Vector3 basePosition =
+            GetNormalSpritePosition();
+
+        switch (summonData.AttackMotionType)
+        {
+            case SummonAttackMotionType.Lunge:
+                {
+                    Vector3 forward =
+                        basePosition +
+                        (Vector3)(
+                            direction *
+                            summonData.AttackForwardDistance
+                        );
+
+                    yield return MoveSpriteLocal(
+                        basePosition,
+                        forward,
+                        summonData.AttackForwardTime
+                    );
+
+                    yield return MoveSpriteLocal(
+                        forward,
+                        basePosition,
+                        summonData.AttackReturnTime
+                    );
+
+                    break;
+                }
+
+            case SummonAttackMotionType.BackstepDive:
+                {
+                    Vector3 back =
+                        basePosition -
+                        (Vector3)(
+                            direction *
+                            summonData.AttackBackstepDistance
+                        );
+
+                    Vector3 forward =
+                        basePosition +
+                        (Vector3)(
+                            direction *
+                            summonData.AttackForwardDistance
+                        );
+
+                    yield return MoveSpriteLocal(
+                        basePosition,
+                        back,
+                        summonData.AttackBackstepTime
+                    );
+
+                    yield return MoveSpriteLocal(
+                        back,
+                        forward,
+                        summonData.AttackForwardTime
+                    );
+
+                    yield return MoveSpriteLocal(
+                        forward,
+                        basePosition,
+                        summonData.AttackReturnTime
+                    );
+
+                    break;
+                }
+
+            case SummonAttackMotionType.HeavyStep:
+                {
+                    Vector3 forward =
+                        basePosition +
+                        (Vector3)(
+                            direction *
+                            summonData.AttackForwardDistance
+                        );
+
+                    yield return MoveSpriteLocal(
+                        basePosition,
+                        forward,
+                        summonData.AttackForwardTime
+                    );
+
+                    yield return MoveSpriteLocal(
+                        forward,
+                        basePosition,
+                        summonData.AttackReturnTime
+                    );
+
+                    break;
+                }
+
+            case SummonAttackMotionType.Recoil:
+                {
+                    Vector3 back =
+                        basePosition -
+                        (Vector3)(
+                            direction *
+                            summonData.AttackBackstepDistance
+                        );
+
+                    yield return MoveSpriteLocal(
+                        basePosition,
+                        back,
+                        summonData.AttackBackstepTime
+                    );
+
+                    yield return MoveSpriteLocal(
+                        back,
+                        basePosition,
+                        summonData.AttackReturnTime
+                    );
+
+                    break;
+                }
+        }
+
+        if (!isDead &&
+            spriteRenderer != null)
+        {
+            spriteRenderer.transform.localPosition =
+                basePosition;
+        }
+
+        attackBodyMotionRunning =
+            false;
+
+        attackBodyCoroutine =
+            null;
+    }
+
+    private IEnumerator MoveSpriteLocal(
+        Vector3 from,
+        Vector3 to,
+        float duration)
+    {
+        duration =
+            Mathf.Max(
+                0.01f,
+                duration
+            );
+
+        float timer =
+            0f;
+
+        while (timer <
+               duration)
+        {
+            if (isDead)
+            {
+                yield break;
+            }
+
+            timer +=
+                Time.deltaTime;
+
+            float t =
+                Mathf.Clamp01(
+                    timer /
+                    duration
+                );
+
+            float eased =
+                t *
+                t *
+                (3f - 2f * t);
+
+            spriteRenderer.transform.localPosition =
+                Vector3.Lerp(
+                    from,
+                    to,
+                    eased
+                );
+
+            yield return null;
+        }
+
+        spriteRenderer.transform.localPosition =
+            to;
+    }
+
+    private Vector2 FacingToVector(
+        FacingType facing)
+    {
+        switch (facing)
+        {
+            case FacingType.Up:
+                return Vector2.up;
+
+            case FacingType.UpRight:
+                return new Vector2(
+                    1f,
+                    1f
+                ).normalized;
+
+            case FacingType.Right:
+                return Vector2.right;
+
+            case FacingType.DownRight:
+                return new Vector2(
+                    1f,
+                    -1f
+                ).normalized;
+
+            case FacingType.Down:
+                return Vector2.down;
+
+            case FacingType.DownLeft:
+                return new Vector2(
+                    -1f,
+                    -1f
+                ).normalized;
+
+            case FacingType.Left:
+                return Vector2.left;
+
+            case FacingType.UpLeft:
+                return new Vector2(
+                    -1f,
+                    1f
+                ).normalized;
+        }
+
+        return Vector2.down;
+    }
+
+    // =========================================================
+    // 피격
+    // =========================================================
+
+    public void PlayHit()
+    {
+        if (isDead ||
+            isSummonAppearing)
+        {
+            return;
+        }
+
+        PlayHitFlash();
+
+        if (currentMotion ==
+            MotionType.Attack)
+        {
+            return;
+        }
+
+        if (hitFrames == null ||
+            hitFrames.Length == 0)
+        {
+            return;
+        }
+
+        lockedActionFacing =
+            currentFacing;
+
+        actionLocked =
+            true;
+
+        currentMotion =
+            MotionType.Hit;
+
+        currentFrame =
+            0;
+
+        animationTimer =
+            0f;
+
+        UpdateCurrentSprite();
+    }
 
     private void PlayHitFlash()
     {
@@ -373,222 +1419,6 @@ public class SummonVisualController : MonoBehaviour
     }
 
     // =========================================================
-    // 이동
-    // =========================================================
-
-    public void SetMoving(
-        bool moving)
-    {
-        if (isDead ||
-            isSummonAppearing)
-        {
-            isMoving =
-                false;
-
-            return;
-        }
-
-        isMoving =
-            moving;
-    }
-
-    // =========================================================
-    // 방향
-    // =========================================================
-
-    public void SetFacingDirection(
-        Vector2 direction)
-    {
-        if (actionLocked ||
-            isSummonAppearing ||
-            direction.sqrMagnitude <=
-            0.0001f)
-        {
-            return;
-        }
-
-        direction.Normalize();
-
-        currentFacing =
-            DetermineFacing(
-                direction
-            );
-
-        UpdateCurrentSprite();
-    }
-
-    private FacingType DetermineFacing(
-        Vector2 direction)
-    {
-        float absX =
-            Mathf.Abs(
-                direction.x
-            );
-
-        float absY =
-            Mathf.Abs(
-                direction.y
-            );
-
-        if (absX >
-            absY +
-            directionSwitchMargin)
-        {
-            return direction.x >= 0f
-                ? FacingType.Right
-                : FacingType.Left;
-        }
-
-        if (absY >
-            absX +
-            directionSwitchMargin)
-        {
-            return direction.y >= 0f
-                ? FacingType.Up
-                : FacingType.Down;
-        }
-
-        return currentFacing;
-    }
-
-    public Vector2 GetFacingDirection()
-    {
-        switch (currentFacing)
-        {
-            case FacingType.Up:
-                return Vector2.up;
-
-            case FacingType.Right:
-                return Vector2.right;
-
-            case FacingType.Left:
-                return Vector2.left;
-
-            default:
-                return Vector2.down;
-        }
-    }
-
-    // =========================================================
-    // Idle / Walk 자동 전환
-    // =========================================================
-
-    private void UpdateAutomaticMotion()
-    {
-        if (isDead ||
-            actionLocked ||
-            isSummonAppearing)
-        {
-            return;
-        }
-
-        ChangeMotion(
-            isMoving
-                ? MotionType.Walk
-                : MotionType.Idle
-        );
-    }
-
-    // =========================================================
-    // 공격
-    // =========================================================
-
-    public void PlayAttack(
-        Action onHit = null,
-        Action onFinished = null)
-    {
-        if (isDead ||
-            isSummonAppearing)
-        {
-            return;
-        }
-
-        // 공격 시작 순간 방향 저장
-        lockedActionFacing =
-            currentFacing;
-
-        attackHitCallback =
-            onHit;
-
-        actionFinishedCallback =
-            onFinished;
-
-        attackDamageTriggered =
-            false;
-
-        actionLocked =
-            true;
-
-        currentMotion =
-            MotionType.Attack;
-
-        currentFrame =
-            0;
-
-        animationTimer =
-            0f;
-
-        if (attackFrames == null ||
-            attackFrames.Length <
-            attackColumns * 3)
-        {
-            TriggerAttackHit();
-            FinishAttackMotion();
-            return;
-        }
-
-        UpdateCurrentSprite();
-
-        if (attackHitFrame <=
-            0)
-        {
-            TriggerAttackHit();
-        }
-    }
-
-    // =========================================================
-    // 피격
-    // =========================================================
-
-    public void PlayHit()
-    {
-        if (isDead ||
-            isSummonAppearing)
-        {
-            return;
-        }
-
-        PlayHitFlash();
-
-        // 공격 중에는 공격 애니메이션 유지
-        if (currentMotion ==
-            MotionType.Attack)
-        {
-            return;
-        }
-
-        if (hitFrames == null ||
-            hitFrames.Length == 0)
-        {
-            return;
-        }
-
-        actionLocked =
-            true;
-
-        currentMotion =
-            MotionType.Hit;
-
-        currentFrame =
-            0;
-
-        animationTimer =
-            0f;
-
-        UpdateCurrentSprite();
-    }
-
-    // =========================================================
     // 사망
     // =========================================================
 
@@ -615,10 +1445,48 @@ public class SummonVisualController : MonoBehaviour
         actionLocked =
             true;
 
-        // 죽는 순간 방향 저장
         lockedActionFacing =
             currentFacing;
 
+        StopActiveVisualCoroutines();
+
+        attackHitCallback =
+            null;
+
+        actionFinishedCallback =
+            onFinished;
+
+        if (summonData != null)
+        {
+            switch (summonData.DeathMotionType)
+            {
+                case SummonDeathMotionType.Fall:
+                    {
+                        deathSequenceCoroutine =
+                            StartCoroutine(
+                                FlyingFallDeathRoutine()
+                            );
+
+                        return;
+                    }
+
+                case SummonDeathMotionType.Fade:
+                    {
+                        deathSequenceCoroutine =
+                            StartCoroutine(
+                                FloatingFadeDeathRoutine()
+                            );
+
+                        return;
+                    }
+            }
+        }
+
+        StartNormalDeathAnimation();
+    }
+
+    private void StopActiveVisualCoroutines()
+    {
         if (summonAppearCoroutine != null)
         {
             StopCoroutine(
@@ -639,14 +1507,17 @@ public class SummonVisualController : MonoBehaviour
                 null;
         }
 
-        if (deathSequenceCoroutine != null)
+        if (attackBodyCoroutine != null)
         {
             StopCoroutine(
-                deathSequenceCoroutine
+                attackBodyCoroutine
             );
 
-            deathSequenceCoroutine =
+            attackBodyCoroutine =
                 null;
+
+            attackBodyMotionRunning =
+                false;
         }
 
         if (spriteRenderer != null)
@@ -656,17 +1527,182 @@ public class SummonVisualController : MonoBehaviour
 
             spriteRenderer.transform.localScale =
                 originalSpriteScale;
+        }
+    }
+
+    // =========================================================
+    // Flying 사망
+    // =========================================================
+
+    private IEnumerator FlyingFallDeathRoutine()
+    {
+        isDeathSequenceRunning =
+            true;
+
+        Vector3 start =
+            spriteRenderer.transform.localPosition;
+
+        Vector3 ground =
+            originalSpriteLocalPosition;
+
+        float duration =
+            Mathf.Max(
+                0.01f,
+                summonData.FallDeathTime
+            );
+
+        float timer =
+            0f;
+
+        Vector3 shadowStartScale =
+            shadowObject != null
+                ? shadowObject.transform.localScale
+                : Vector3.one;
+
+        float shadowStartAlpha =
+            shadowRenderer != null
+                ? shadowRenderer.color.a
+                : 0f;
+
+        while (timer <
+               duration)
+        {
+            timer +=
+                Time.deltaTime;
+
+            float t =
+                Mathf.Clamp01(
+                    timer /
+                    duration
+                );
+
+            float fallT =
+                t * t;
 
             spriteRenderer.transform.localPosition =
-                originalSpriteLocalPosition;
+                Vector3.Lerp(
+                    start,
+                    ground,
+                    fallT
+                );
+
+            if (shadowRenderer != null &&
+                shadowObject != null)
+            {
+                shadowObject.transform.localScale =
+                    Vector3.Lerp(
+                        shadowStartScale,
+                        Vector3.one *
+                        summonData.ShadowBaseScale *
+                        1.12f,
+                        t
+                    );
+
+                Color shadowColor =
+                    shadowRenderer.color;
+
+                shadowColor.a =
+                    Mathf.Lerp(
+                        shadowStartAlpha,
+                        Mathf.Clamp01(
+                            summonData.ShadowBaseAlpha +
+                            0.2f
+                        ),
+                        t
+                    );
+
+                shadowRenderer.color =
+                    shadowColor;
+            }
+
+            yield return null;
         }
 
-        attackHitCallback =
+        spriteRenderer.transform.localPosition =
+            ground;
+
+        isDeathSequenceRunning =
+            false;
+
+        deathSequenceCoroutine =
             null;
 
-        actionFinishedCallback =
-            onFinished;
+        StartNormalDeathAnimation();
+    }
 
+    // =========================================================
+    // Floating 사망
+    // =========================================================
+
+    private IEnumerator FloatingFadeDeathRoutine()
+    {
+        isDeathSequenceRunning =
+            true;
+
+        Vector3 startPosition =
+            spriteRenderer.transform.localPosition;
+
+        Color startColor =
+            originalColor;
+
+        float duration =
+            Mathf.Max(
+                0.1f,
+                deathFadeTime
+            );
+
+        float timer =
+            0f;
+
+        while (timer <
+               duration)
+        {
+            timer +=
+                Time.deltaTime;
+
+            float t =
+                Mathf.Clamp01(
+                    timer /
+                    duration
+                );
+
+            float shake =
+                Mathf.Sin(
+                    t *
+                    Mathf.PI *
+                    8f
+                ) *
+                summonData.FloatingDeathShake *
+                (1f - t);
+
+            spriteRenderer.transform.localPosition =
+                startPosition +
+                Vector3.right *
+                shake +
+                Vector3.up *
+                (t * 0.12f);
+
+            Color color =
+                startColor;
+
+            color.a =
+                Mathf.Lerp(
+                    startColor.a,
+                    0f,
+                    t
+                );
+
+            spriteRenderer.color =
+                color;
+
+            yield return null;
+        }
+
+        FinishDeath();
+    }
+
+    private void StartNormalDeathAnimation()
+    {
         currentMotion =
             MotionType.Death;
 
@@ -676,13 +1712,16 @@ public class SummonVisualController : MonoBehaviour
         animationTimer =
             0f;
 
-        // Death 배열이 잘못되어 있어도
-        // 바로 삭제하지 않고 현재 모습으로 페이드 처리
-        if (deathFrames == null ||
-            deathFrames.Length <
-            deathColumns * 3)
+        isDeathSequenceRunning =
+            false;
+
+        if (!HasEnoughDirectionalFrames(
+                deathFrames,
+                deathColumns
+            ))
         {
-            StartDeathSequence();
+            StartDeathFadeSequence();
+
             return;
         }
 
@@ -733,73 +1772,79 @@ public class SummonVisualController : MonoBehaviour
             switch (currentMotion)
             {
                 case MotionType.Idle:
-
-                    if (currentFrame >=
-                        idleColumns)
                     {
-                        currentFrame =
-                            0;
-                    }
+                        if (currentFrame >=
+                            idleColumns)
+                        {
+                            currentFrame =
+                                0;
+                        }
 
-                    break;
+                        break;
+                    }
 
                 case MotionType.Walk:
-
-                    if (currentFrame >=
-                        walkColumns)
                     {
-                        currentFrame =
-                            0;
-                    }
+                        if (currentFrame >=
+                            walkColumns)
+                        {
+                            currentFrame =
+                                0;
+                        }
 
-                    break;
+                        break;
+                    }
 
                 case MotionType.Attack:
-
-                    if (!attackDamageTriggered &&
-                        currentFrame >=
-                        attackHitFrame)
                     {
-                        TriggerAttackHit();
-                    }
+                        if (!attackDamageTriggered &&
+                            currentFrame >=
+                            attackHitFrame)
+                        {
+                            TriggerAttackHit();
+                        }
 
-                    if (currentFrame >=
-                        attackColumns)
-                    {
-                        FinishAttackMotion();
-                        return;
-                    }
+                        if (currentFrame >=
+                            attackColumns)
+                        {
+                            FinishAttackMotion();
 
-                    break;
+                            return;
+                        }
+
+                        break;
+                    }
 
                 case MotionType.Hit:
-
-                    if (currentFrame >=
-                        hitFrames.Length)
                     {
-                        FinishHitMotion();
-                        return;
-                    }
+                        if (currentFrame >=
+                            hitFrames.Length)
+                        {
+                            FinishHitMotion();
 
-                    break;
+                            return;
+                        }
+
+                        break;
+                    }
 
                 case MotionType.Death:
-
-                    if (currentFrame >=
-                        deathColumns)
                     {
-                        // 마지막 쓰러진 프레임 유지
-                        currentFrame =
-                            deathColumns - 1;
+                        if (currentFrame >=
+                            deathColumns)
+                        {
+                            currentFrame =
+                                deathColumns - 1;
 
-                        UpdateCurrentSprite();
+                            UpdateCurrentSprite();
 
-                        StartDeathSequence();
+                            StartDeathFadeSequence();
 
-                        return;
+                            return;
+                        }
+
+                        break;
                     }
-
-                    break;
             }
 
             UpdateCurrentSprite();
@@ -807,7 +1852,7 @@ public class SummonVisualController : MonoBehaviour
     }
 
     // =========================================================
-    // 공격 타격
+    // 공격 처리
     // =========================================================
 
     private void TriggerAttackHit()
@@ -829,10 +1874,6 @@ public class SummonVisualController : MonoBehaviour
         callback?.Invoke();
     }
 
-    // =========================================================
-    // 공격 종료
-    // =========================================================
-
     private void FinishAttackMotion()
     {
         if (!attackDamageTriggered)
@@ -843,7 +1884,6 @@ public class SummonVisualController : MonoBehaviour
         actionLocked =
             false;
 
-        // 공격하던 방향 그대로 유지
         currentFacing =
             lockedActionFacing;
 
@@ -867,19 +1907,23 @@ public class SummonVisualController : MonoBehaviour
         callback?.Invoke();
     }
 
-    // =========================================================
-    // 피격 종료
-    // =========================================================
-
     private void FinishHitMotion()
     {
         actionLocked =
             false;
 
-        currentMotion =
-            isMoving
-                ? MotionType.Walk
-                : MotionType.Idle;
+        if (movementType ==
+            SummonMovementType.Ground &&
+            isMoving)
+        {
+            currentMotion =
+                MotionType.Walk;
+        }
+        else
+        {
+            currentMotion =
+                MotionType.Idle;
+        }
 
         currentFrame =
             0;
@@ -891,10 +1935,10 @@ public class SummonVisualController : MonoBehaviour
     }
 
     // =========================================================
-    // 죽음 유지 + 페이드아웃
+    // Death Fade
     // =========================================================
 
-    private void StartDeathSequence()
+    private void StartDeathFadeSequence()
     {
         if (isDeathSequenceRunning ||
             deathFinished)
@@ -907,16 +1951,12 @@ public class SummonVisualController : MonoBehaviour
 
         deathSequenceCoroutine =
             StartCoroutine(
-                DeathSequenceRoutine()
+                DeathFadeRoutine()
             );
     }
 
-    private IEnumerator DeathSequenceRoutine()
+    private IEnumerator DeathFadeRoutine()
     {
-        // -----------------------------------------------------
-        // 1. 쓰러진 마지막 모습 잠깐 유지
-        // -----------------------------------------------------
-
         if (deathHoldTime > 0f)
         {
             yield return
@@ -925,22 +1965,19 @@ public class SummonVisualController : MonoBehaviour
                 );
         }
 
-        // -----------------------------------------------------
-        // 2. 서서히 투명해짐
-        // -----------------------------------------------------
+        Color start =
+            spriteRenderer.color;
 
-        if (spriteRenderer != null &&
-            deathFadeTime > 0f)
+        Color shadowStart =
+            shadowRenderer != null
+                ? shadowRenderer.color
+                : Color.clear;
+
+        float timer =
+            0f;
+
+        if (deathFadeTime > 0f)
         {
-            Color startColor =
-                spriteRenderer.color;
-
-            float startAlpha =
-                startColor.a;
-
-            float timer =
-                0f;
-
             while (timer <
                    deathFadeTime)
             {
@@ -954,11 +1991,11 @@ public class SummonVisualController : MonoBehaviour
                     );
 
                 Color color =
-                    startColor;
+                    start;
 
                 color.a =
                     Mathf.Lerp(
-                        startAlpha,
+                        start.a,
                         0f,
                         t
                     );
@@ -966,22 +2003,25 @@ public class SummonVisualController : MonoBehaviour
                 spriteRenderer.color =
                     color;
 
+                if (shadowRenderer != null)
+                {
+                    Color shadowColor =
+                        shadowStart;
+
+                    shadowColor.a =
+                        Mathf.Lerp(
+                            shadowStart.a,
+                            0f,
+                            t
+                        );
+
+                    shadowRenderer.color =
+                        shadowColor;
+                }
+
                 yield return null;
             }
-
-            Color finalColor =
-                startColor;
-
-            finalColor.a =
-                0f;
-
-            spriteRenderer.color =
-                finalColor;
         }
-
-        // -----------------------------------------------------
-        // 3. 완전히 사라진 뒤 삭제 콜백
-        // -----------------------------------------------------
 
         FinishDeath();
     }
@@ -999,9 +2039,6 @@ public class SummonVisualController : MonoBehaviour
         isDeathSequenceRunning =
             false;
 
-        deathSequenceCoroutine =
-            null;
-
         Action callback =
             actionFinishedCallback;
 
@@ -1012,7 +2049,7 @@ public class SummonVisualController : MonoBehaviour
     }
 
     // =========================================================
-    // 현재 배열
+    // 현재 프레임 세트
     // =========================================================
 
     private Sprite[] GetCurrentFrames()
@@ -1057,6 +2094,32 @@ public class SummonVisualController : MonoBehaviour
         }
     }
 
+    private int GetCurrentColumns()
+    {
+        switch (currentMotion)
+        {
+            case MotionType.Walk:
+                return walkColumns;
+
+            case MotionType.Attack:
+                return attackColumns;
+
+            case MotionType.Death:
+                return deathColumns;
+
+            case MotionType.Hit:
+                return Mathf.Max(
+                    1,
+                    hitFrames != null
+                        ? hitFrames.Length
+                        : 1
+                );
+
+            default:
+                return idleColumns;
+        }
+    }
+
     // =========================================================
     // Sprite 적용
     // =========================================================
@@ -1068,67 +2131,28 @@ public class SummonVisualController : MonoBehaviour
             return;
         }
 
-        switch (currentMotion)
-        {
-            case MotionType.Attack:
+        Sprite[] frames =
+            GetCurrentFrames();
 
-                ApplyDirectionalAnimation(
-                    attackFrames,
-                    attackColumns,
-                    lockedActionFacing
-                );
+        int columns =
+            GetCurrentColumns();
 
-                break;
+        FacingType facing =
+            currentMotion ==
+                MotionType.Attack ||
+            currentMotion ==
+                MotionType.Death ||
+            currentMotion ==
+                MotionType.Hit
+                ? lockedActionFacing
+                : currentFacing;
 
-            case MotionType.Death:
-
-                ApplyDirectionalAnimation(
-                    deathFrames,
-                    deathColumns,
-                    lockedActionFacing
-                );
-
-                break;
-
-            case MotionType.Walk:
-
-                ApplyDirectionalAnimation(
-                    walkFrames,
-                    walkColumns,
-                    currentFacing
-                );
-
-                break;
-
-            case MotionType.Hit:
-
-                ApplySingleAnimation(
-                    hitFrames
-                );
-
-                break;
-
-            default:
-
-                ApplyDirectionalAnimation(
-                    idleFrames,
-                    idleColumns,
-                    currentFacing
-                );
-
-                break;
-        }
+        ApplyDirectionalAnimation(
+            frames,
+            columns,
+            facing
+        );
     }
-
-    // =========================================================
-    // 방향 애니메이션
-    //
-    // 아래
-    // 오른쪽
-    // 위
-    //
-    // 왼쪽 = 오른쪽 Flip X
-    // =========================================================
 
     private void ApplyDirectionalAnimation(
         Sprite[] frames,
@@ -1136,50 +2160,42 @@ public class SummonVisualController : MonoBehaviour
         FacingType facing)
     {
         if (frames == null ||
-            columns <= 0 ||
-            frames.Length <
-            columns * 3)
+            frames.Length == 0)
         {
             return;
         }
 
-        int row;
-        bool flipX =
-            false;
-
-        switch (facing)
+        // 피격은 공통 프레임
+        if (currentMotion ==
+            MotionType.Hit)
         {
-            case FacingType.Up:
+            int hitIndex =
+                Mathf.Clamp(
+                    currentFrame,
+                    0,
+                    frames.Length - 1
+                );
 
-                row =
-                    2;
+            spriteRenderer.sprite =
+                frames[hitIndex];
 
-                break;
-
-            case FacingType.Right:
-
-                row =
-                    1;
-
-                break;
-
-            case FacingType.Left:
-
-                row =
-                    1;
-
-                flipX =
-                    true;
-
-                break;
-
-            default:
-
-                row =
-                    0;
-
-                break;
+            return;
         }
+
+        if (columns <= 0)
+        {
+            return;
+        }
+
+        int row =
+            GetDirectionRow(
+                facing
+            );
+
+        bool flipX =
+            ShouldFlipX(
+                facing
+            );
 
         int frame =
             Mathf.Clamp(
@@ -1193,6 +2209,12 @@ public class SummonVisualController : MonoBehaviour
             columns +
             frame;
 
+        if (index < 0 ||
+            index >= frames.Length)
+        {
+            return;
+        }
+
         spriteRenderer.flipX =
             flipX;
 
@@ -1201,31 +2223,112 @@ public class SummonVisualController : MonoBehaviour
     }
 
     // =========================================================
-    // 방향 없는 애니메이션
+    // 방향 → 배열 줄
     // =========================================================
 
-    private void ApplySingleAnimation(
-        Sprite[] frames)
+    private int GetDirectionRow(
+        FacingType facing)
     {
-        if (frames == null ||
-            frames.Length == 0)
+        if (directionMode ==
+            DirectionMode.ThreeDirections)
         {
-            return;
+            switch (facing)
+            {
+                case FacingType.Up:
+                case FacingType.UpLeft:
+                case FacingType.UpRight:
+                    return 2;
+
+                case FacingType.Right:
+                case FacingType.Left:
+                case FacingType.DownRight:
+                case FacingType.DownLeft:
+                    return 1;
+
+                default:
+                    return 0;
+            }
         }
 
-        int index =
-            Mathf.Clamp(
-                currentFrame,
-                0,
-                frames.Length - 1
-            );
+        // -----------------------------------------------------
+        // FiveDirections
+        //
+        // 0 = Down
+        // 1 = DownRight
+        // 2 = Right
+        // 3 = UpRight
+        // 4 = Up
+        // -----------------------------------------------------
 
-        spriteRenderer.sprite =
-            frames[index];
+        switch (facing)
+        {
+            case FacingType.Down:
+                return 0;
+
+            case FacingType.DownRight:
+            case FacingType.DownLeft:
+                return 1;
+
+            case FacingType.Right:
+            case FacingType.Left:
+                return 2;
+
+            case FacingType.UpRight:
+            case FacingType.UpLeft:
+                return 3;
+
+            case FacingType.Up:
+                return 4;
+        }
+
+        return 0;
+    }
+
+    private bool ShouldFlipX(
+        FacingType facing)
+    {
+        switch (facing)
+        {
+            case FacingType.Left:
+            case FacingType.UpLeft:
+            case FacingType.DownLeft:
+                return true;
+
+            default:
+                return false;
+        }
     }
 
     // =========================================================
-    // 상태 변경
+    // 배열 검사
+    // =========================================================
+
+    private bool HasEnoughDirectionalFrames(
+        Sprite[] frames,
+        int columns)
+    {
+        if (frames == null ||
+            columns <= 0)
+        {
+            return false;
+        }
+
+        int directionCount =
+            directionMode ==
+            DirectionMode.FiveDirections
+                ? 5
+                : 3;
+
+        int required =
+            columns *
+            directionCount;
+
+        return frames.Length >=
+               required;
+    }
+
+    // =========================================================
+    // 모션 변경
     // =========================================================
 
     private void ChangeMotion(
@@ -1249,7 +2352,12 @@ public class SummonVisualController : MonoBehaviour
         UpdateCurrentSprite();
     }
 
+    // =========================================================
+    // Inspector 안전 처리
+    // =========================================================
+
 #if UNITY_EDITOR
+
     private void OnValidate()
     {
         directionSwitchMargin =
@@ -1343,12 +2451,7 @@ public class SummonVisualController : MonoBehaviour
                 0.01f,
                 summonAppearDuration
             );
-
-        summonRiseDistance =
-            Mathf.Max(
-                0f,
-                summonRiseDistance
-            );
     }
+
 #endif
 }

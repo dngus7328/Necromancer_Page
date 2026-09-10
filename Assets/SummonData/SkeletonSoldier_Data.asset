@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5396efde4f31de4b8232c0b4c7b1137, type: 3}
+  m_Name: SkeletonSoldier_Data
+  m_EditorClassIdentifier: 
+  summonName: SkeletonSoldier_Data
+  slotVisualPrefab: {fileID: 8654142746936326431, guid: 015059a0dc173f148a6a1f39f29f8a89, type: 3}
+  summonPrefab: {fileID: 5407501456505759879, guid: c9de6cfcc96c92149af017864e5ca93f, type: 3}
+  previewSprite: {fileID: 1129072443, guid: fc75c1363e3e44144b87e0e597f5f1b6, type: 3}
+  previewCircleScale: 1
+  summonCircleSprite: {fileID: 21300000, guid: 70f3a03b9bb6b514eb8662acd48c7922, type: 3}
+  summonBodySize: 1
+  spawnCount: 2
+  manaCost: 20
+  capacityCost: 1
+  cooldown: 8
+  movementType: 0
+  hoverHeight: 0.35
+  hoverAmplitude: 0.06
+  hoverSpeed: 2.4
+  shadowSprite: {fileID: 0}
+  shadowOffset: {x: 0, y: -0.05}
+  shadowBaseScale: 1
+  shadowBaseAlpha: 0.35
+  shadowScaleVariation: 0.12
+  shadowAlphaVariation: 0.1
+  attackMotionType: 0
+  attackBackstepDistance: 0.4
+  attackForwardDistance: 0.6
+  attackBackstepTime: 0.12
+  attackForwardTime: 0.1
+  attackReturnTime: 0.16
+  deathMotionType: 0
+  fallDeathTime: 0.32
+  floatingDeathShake: 0.08

@@ -7,51 +7,88 @@ using UnityEngine.Serialization;
 public class RibelController : MonoBehaviour
 {
     [Header("이동 설정")]
-    [SerializeField] private float moveSpeed = 4.2f;
-    [SerializeField] private float stopDistance = 0.02f;
+    [SerializeField]
+    private float moveSpeed = 4.2f;
+
+    [SerializeField]
+    private float stopDistance = 0.02f;
 
     [Header("IDLE 모션")]
     [FormerlySerializedAs("idleFrames")]
-    [SerializeField] private Sprite[] spriteFrames;
+    [SerializeField]
+    private Sprite[] spriteFrames;
 
-    [SerializeField] private int idleColumns = 6;
-    [SerializeField] private float idleFrameRate = 8f;
+    [SerializeField]
+    private int idleColumns = 6;
+
+    [SerializeField]
+    private float idleFrameRate = 8f;
 
     [Header("WALK 모션")]
-    [SerializeField] private Sprite[] walkFrames;
-    [SerializeField] private int walkColumns = 8;
-    [SerializeField] private float walkFrameRate = 8f;
+    [SerializeField]
+    private Sprite[] walkFrames;
+
+    [SerializeField]
+    private int walkColumns = 8;
+
+    [SerializeField]
+    private float walkFrameRate = 8f;
 
     [Header("SUMMON 모션")]
-    [SerializeField] private Sprite[] summonFrames;
-    [SerializeField] private int summonColumns = 6;
-    [SerializeField] private float summonFrameRate = 8f;
+    [SerializeField]
+    private Sprite[] summonFrames;
+
+    [SerializeField]
+    private int summonColumns = 6;
+
+    [SerializeField]
+    private float summonFrameRate = 8f;
 
     [Header("HIT 모션")]
-    [SerializeField] private Sprite[] hitFrames;
-    [SerializeField] private int hitColumns = 4;
-    [SerializeField] private float hitFrameRate = 10f;
+    [SerializeField]
+    private Sprite[] hitFrames;
+
+    [SerializeField]
+    private int hitColumns = 4;
+
+    [SerializeField]
+    private float hitFrameRate = 10f;
 
     [Header("DEATH 모션")]
     [Tooltip("방향과 관계없이 사용하는 단일 사망 모션")]
-    [SerializeField] private Sprite[] deathFrames;
+    [SerializeField]
+    private Sprite[] deathFrames;
 
-    [SerializeField] private float deathFrameRate = 8f;
+    [SerializeField]
+    private float deathFrameRate = 8f;
 
     [Header("클릭 이동 이펙트")]
-    [SerializeField] private GameObject clickMoveEffectPrefab;
-    [SerializeField] private Vector3 clickEffectOffset = Vector3.zero;
+    [SerializeField]
+    private GameObject clickMoveEffectPrefab;
+
+    [SerializeField]
+    private Vector3 clickEffectOffset =
+        Vector3.zero;
+
+    // =========================================================
+    // Runtime
+    // =========================================================
 
     private SpriteRenderer spriteRenderer;
+
     private Rigidbody2D rb;
+
     private Camera mainCamera;
 
     private Vector2 targetPosition;
+
     private bool hasTarget;
 
-    private Vector2 lastLookDirection = Vector2.down;
+    private Vector2 lastLookDirection =
+        Vector2.down;
 
     private float animationTimer;
+
     private int currentFrame;
 
     private GameObject currentClickEffect;
@@ -59,9 +96,11 @@ public class RibelController : MonoBehaviour
     private const int TotalRows = 5;
 
     private bool lockMotion;
+
     private bool isDead;
 
-    public bool IsDead => isDead;
+    public bool IsDead =>
+        isDead;
 
     private enum MotionType
     {
@@ -72,7 +111,8 @@ public class RibelController : MonoBehaviour
         Death
     }
 
-    private MotionType currentMotion = MotionType.Idle;
+    private MotionType currentMotion =
+        MotionType.Idle;
 
     private enum RowType
     {
@@ -83,19 +123,34 @@ public class RibelController : MonoBehaviour
         Up = 4
     }
 
+    // =========================================================
+    // Unity
+    // =========================================================
+
     private void Awake()
     {
-        spriteRenderer = GetComponent<SpriteRenderer>();
-        rb = GetComponent<Rigidbody2D>();
-        mainCamera = Camera.main;
+        spriteRenderer =
+            GetComponent<SpriteRenderer>();
 
-        targetPosition = rb.position;
+        rb =
+            GetComponent<Rigidbody2D>();
+
+        mainCamera =
+            Camera.main;
+
+        targetPosition =
+            rb.position;
     }
 
     private void Start()
     {
-        ChangeMotion(MotionType.Idle);
-        UpdateCurrentSprite(lastLookDirection);
+        ChangeMotion(
+            MotionType.Idle
+        );
+
+        UpdateCurrentSprite(
+            lastLookDirection
+        );
     }
 
     private void Update()
@@ -106,6 +161,7 @@ public class RibelController : MonoBehaviour
         }
 
         UpdateAutomaticMotion();
+
         UpdateAnimation();
     }
 
@@ -118,6 +174,10 @@ public class RibelController : MonoBehaviour
         }
     }
 
+    // =========================================================
+    // 자동 모션
+    // =========================================================
+
     private void UpdateAutomaticMotion()
     {
         if (lockMotion ||
@@ -128,13 +188,21 @@ public class RibelController : MonoBehaviour
 
         if (hasTarget)
         {
-            ChangeMotion(MotionType.Walk);
+            ChangeMotion(
+                MotionType.Walk
+            );
         }
         else
         {
-            ChangeMotion(MotionType.Idle);
+            ChangeMotion(
+                MotionType.Idle
+            );
         }
     }
+
+    // =========================================================
+    // 좌클릭 이동
+    // =========================================================
 
     private void HandleMouseInput()
     {
@@ -143,11 +211,47 @@ public class RibelController : MonoBehaviour
             return;
         }
 
+        // =====================================================
+        // 1. 소환 배치 모드
+        //
+        // 가능한 위치를 눌러도,
+        // 불가능한 위치를 눌러도
+        // 리벨 이동에는 절대 사용하지 않는다.
+        //
+        // 프레임 실행 순서와 무관하게 동작한다.
+        // =====================================================
+
+        if (SummonManager.Instance != null &&
+            SummonManager.Instance.IsConsumingWorldClick)
+        {
+            return;
+        }
+
+        // =====================================================
+        // 2. Q + 좌클릭 = 위치 집결
+        //
+        // Q를 누른 채 클릭하는 동안
+        // 그 클릭으로 리벨은 이동하지 않는다.
+        // =====================================================
+
+        if (Input.GetKey(KeyCode.Q))
+        {
+            return;
+        }
+
+        // =====================================================
+        // 기존 한 프레임 차단값도 호환용으로 유지
+        // =====================================================
+
         if (SummonManager.Instance != null &&
             SummonManager.Instance.ShouldBlockRibelMoveThisFrame)
         {
             return;
         }
+
+        // =====================================================
+        // UI 위 클릭
+        // =====================================================
 
         if (EventSystem.current != null &&
             EventSystem.current.IsPointerOverGameObject())
@@ -155,9 +259,14 @@ public class RibelController : MonoBehaviour
             return;
         }
 
+        // =====================================================
+        // 카메라
+        // =====================================================
+
         if (mainCamera == null)
         {
-            mainCamera = Camera.main;
+            mainCamera =
+                Camera.main;
 
             if (mainCamera == null)
             {
@@ -165,12 +274,17 @@ public class RibelController : MonoBehaviour
             }
         }
 
+        // =====================================================
+        // 정상적인 일반 이동 클릭
+        // =====================================================
+
         Vector3 mouseWorld =
             mainCamera.ScreenToWorldPoint(
                 Input.mousePosition
             );
 
-        mouseWorld.z = 0f;
+        mouseWorld.z =
+            0f;
 
         targetPosition =
             new Vector2(
@@ -178,12 +292,20 @@ public class RibelController : MonoBehaviour
                 mouseWorld.y
             );
 
-        hasTarget = true;
+        hasTarget =
+            true;
 
-        SpawnClickEffect(mouseWorld);
+        SpawnClickEffect(
+            mouseWorld
+        );
     }
 
-    private void SpawnClickEffect(Vector3 position)
+    // =========================================================
+    // 클릭 이펙트
+    // =========================================================
+
+    private void SpawnClickEffect(
+        Vector3 position)
     {
         if (clickMoveEffectPrefab == null)
         {
@@ -192,16 +314,23 @@ public class RibelController : MonoBehaviour
 
         if (currentClickEffect != null)
         {
-            Destroy(currentClickEffect);
+            Destroy(
+                currentClickEffect
+            );
         }
 
         currentClickEffect =
             Instantiate(
                 clickMoveEffectPrefab,
-                position + clickEffectOffset,
+                position +
+                clickEffectOffset,
                 Quaternion.identity
             );
     }
+
+    // =========================================================
+    // 이동
+    // =========================================================
 
     private void MoveCharacter()
     {
@@ -219,10 +348,16 @@ public class RibelController : MonoBehaviour
                 targetPosition
             );
 
-        if (distance <= stopDistance)
+        if (distance <=
+            stopDistance)
         {
-            rb.MovePosition(targetPosition);
-            hasTarget = false;
+            rb.MovePosition(
+                targetPosition
+            );
+
+            hasTarget =
+                false;
+
             return;
         }
 
@@ -230,21 +365,26 @@ public class RibelController : MonoBehaviour
             Vector2.MoveTowards(
                 currentPosition,
                 targetPosition,
-                moveSpeed * Time.fixedDeltaTime
+                moveSpeed *
+                Time.fixedDeltaTime
             );
 
-        rb.MovePosition(nextPosition);
+        rb.MovePosition(
+            nextPosition
+        );
     }
+
+    // =========================================================
+    // 애니메이션
+    // =========================================================
 
     private void UpdateAnimation()
     {
-        // =====================================================
-        // 사망은 방향 무시
-        // =====================================================
-
-        if (currentMotion == MotionType.Death)
+        if (currentMotion ==
+            MotionType.Death)
         {
             UpdateDeathAnimation();
+
             return;
         }
 
@@ -258,7 +398,8 @@ public class RibelController : MonoBehaviour
                 targetPosition -
                 rb.position;
 
-            if (moveDirection.sqrMagnitude > 0.0001f)
+            if (moveDirection.sqrMagnitude >
+                0.0001f)
             {
                 lookDirection =
                     moveDirection.normalized;
@@ -294,20 +435,26 @@ public class RibelController : MonoBehaviour
 
             currentFrame++;
 
-            if (currentMotion == MotionType.Summon ||
-                currentMotion == MotionType.Hit)
+            if (currentMotion ==
+                    MotionType.Summon ||
+                currentMotion ==
+                    MotionType.Hit)
             {
-                if (currentFrame >= columns)
+                if (currentFrame >=
+                    columns)
                 {
                     FinishLockedMotion();
+
                     return;
                 }
             }
             else
             {
-                if (currentFrame >= columns)
+                if (currentFrame >=
+                    columns)
                 {
-                    currentFrame = 0;
+                    currentFrame =
+                        0;
                 }
             }
         }
@@ -318,7 +465,7 @@ public class RibelController : MonoBehaviour
     }
 
     // =========================================================
-    // 공통 단일 사망 모션
+    // 사망 애니메이션
     // =========================================================
 
     private void UpdateDeathAnimation()
@@ -338,7 +485,6 @@ public class RibelController : MonoBehaviour
             animationTimer -=
                 1f / deathFrameRate;
 
-            // 마지막 프레임까지 진행
             if (currentFrame <
                 deathFrames.Length - 1)
             {
@@ -346,11 +492,16 @@ public class RibelController : MonoBehaviour
             }
         }
 
-        spriteRenderer.flipX = false;
+        spriteRenderer.flipX =
+            false;
 
         spriteRenderer.sprite =
             deathFrames[currentFrame];
     }
+
+    // =========================================================
+    // 현재 프레임
+    // =========================================================
 
     private Sprite[] GetCurrentFrames()
     {
@@ -406,6 +557,10 @@ public class RibelController : MonoBehaviour
         }
     }
 
+    // =========================================================
+    // 방향별 Sprite
+    // =========================================================
+
     private void UpdateCurrentSprite(
         Vector2 direction)
     {
@@ -422,7 +577,8 @@ public class RibelController : MonoBehaviour
         }
 
         int requiredFrameCount =
-            columns * TotalRows;
+            columns *
+            TotalRows;
 
         if (frames.Length <
             requiredFrameCount)
@@ -439,11 +595,13 @@ public class RibelController : MonoBehaviour
             );
 
         int spriteIndex =
-            row * columns +
+            row *
+            columns +
             currentFrame;
 
         if (spriteIndex < 0 ||
-            spriteIndex >= frames.Length)
+            spriteIndex >=
+            frames.Length)
         {
             return;
         }
@@ -454,6 +612,10 @@ public class RibelController : MonoBehaviour
         spriteRenderer.sprite =
             frames[spriteIndex];
     }
+
+    // =========================================================
+    // 모션 변경
+    // =========================================================
 
     private void ChangeMotion(
         MotionType newMotion)
@@ -467,16 +629,23 @@ public class RibelController : MonoBehaviour
         currentMotion =
             newMotion;
 
-        currentFrame = 0;
-        animationTimer = 0f;
+        currentFrame =
+            0;
+
+        animationTimer =
+            0f;
     }
 
     private void FinishLockedMotion()
     {
-        lockMotion = false;
+        lockMotion =
+            false;
 
-        currentFrame = 0;
-        animationTimer = 0f;
+        currentFrame =
+            0;
+
+        animationTimer =
+            0f;
 
         if (hasTarget)
         {
@@ -490,6 +659,10 @@ public class RibelController : MonoBehaviour
         }
     }
 
+    // =========================================================
+    // 소환 모션
+    // =========================================================
+
     public void PlaySummonMotion()
     {
         if (isDead)
@@ -497,16 +670,22 @@ public class RibelController : MonoBehaviour
             return;
         }
 
-        hasTarget = false;
+        hasTarget =
+            false;
 
         StopMovement();
 
-        lockMotion = true;
+        lockMotion =
+            true;
 
         ChangeMotion(
             MotionType.Summon
         );
     }
+
+    // =========================================================
+    // 피격 모션
+    // =========================================================
 
     public void PlayHitMotion()
     {
@@ -515,16 +694,22 @@ public class RibelController : MonoBehaviour
             return;
         }
 
-        hasTarget = false;
+        hasTarget =
+            false;
 
         StopMovement();
 
-        lockMotion = true;
+        lockMotion =
+            true;
 
         ChangeMotion(
             MotionType.Hit
         );
     }
+
+    // =========================================================
+    // 사망 모션
+    // =========================================================
 
     public void PlayDeathMotion()
     {
@@ -533,18 +718,28 @@ public class RibelController : MonoBehaviour
             return;
         }
 
-        isDead = true;
-        hasTarget = false;
-        lockMotion = true;
+        isDead =
+            true;
+
+        hasTarget =
+            false;
+
+        lockMotion =
+            true;
 
         StopMovement();
 
-        spriteRenderer.flipX = false;
+        spriteRenderer.flipX =
+            false;
 
         ChangeMotion(
             MotionType.Death
         );
     }
+
+    // =========================================================
+    // 이동 정지
+    // =========================================================
 
     private void StopMovement()
     {
@@ -555,109 +750,173 @@ public class RibelController : MonoBehaviour
             0f;
     }
 
+    // =========================================================
+    // 5방향 + 좌우반전
+    // =========================================================
+
     private int GetRowIndex(
         Vector2 direction,
         out bool flipX)
     {
-        flipX = false;
+        flipX =
+            false;
 
-        float x = direction.x;
-        float y = direction.y;
+        float x =
+            direction.x;
 
-        const float deadZone = 0.25f;
+        float y =
+            direction.y;
 
-        if (Mathf.Abs(x) < deadZone &&
-            y > deadZone)
+        const float deadZone =
+            0.25f;
+
+        if (Mathf.Abs(x) <
+                deadZone &&
+            y >
+                deadZone)
         {
-            return (int)RowType.Up;
+            return (int)
+                RowType.Up;
         }
 
-        if (Mathf.Abs(x) < deadZone &&
-            y < -deadZone)
+        if (Mathf.Abs(x) <
+                deadZone &&
+            y <
+                -deadZone)
         {
-            return (int)RowType.Down;
+            return (int)
+                RowType.Down;
         }
 
-        if (Mathf.Abs(y) < deadZone &&
-            x > deadZone)
+        if (Mathf.Abs(y) <
+                deadZone &&
+            x >
+                deadZone)
         {
-            return (int)RowType.Right;
+            return (int)
+                RowType.Right;
         }
 
-        if (Mathf.Abs(y) < deadZone &&
-            x < -deadZone)
+        if (Mathf.Abs(y) <
+                deadZone &&
+            x <
+                -deadZone)
         {
-            flipX = true;
+            flipX =
+                true;
 
-            return (int)RowType.Right;
+            return (int)
+                RowType.Right;
         }
 
         if (x > 0f &&
             y > 0f)
         {
-            return (int)RowType.UpRight;
+            return (int)
+                RowType.UpRight;
         }
 
         if (x > 0f &&
             y < 0f)
         {
-            return (int)RowType.DownRight;
+            return (int)
+                RowType.DownRight;
         }
 
         if (x < 0f &&
             y > 0f)
         {
-            flipX = true;
+            flipX =
+                true;
 
-            return (int)RowType.UpRight;
+            return (int)
+                RowType.UpRight;
         }
 
         if (x < 0f &&
             y < 0f)
         {
-            flipX = true;
+            flipX =
+                true;
 
-            return (int)RowType.DownRight;
+            return (int)
+                RowType.DownRight;
         }
 
-        return (int)RowType.Down;
+        return (int)
+            RowType.Down;
     }
 
 #if UNITY_EDITOR
+
     private void OnValidate()
     {
         moveSpeed =
-            Mathf.Max(0f, moveSpeed);
+            Mathf.Max(
+                0f,
+                moveSpeed
+            );
 
         stopDistance =
-            Mathf.Max(0.001f, stopDistance);
+            Mathf.Max(
+                0.001f,
+                stopDistance
+            );
 
         idleColumns =
-            Mathf.Max(1, idleColumns);
+            Mathf.Max(
+                1,
+                idleColumns
+            );
 
         walkColumns =
-            Mathf.Max(1, walkColumns);
+            Mathf.Max(
+                1,
+                walkColumns
+            );
 
         summonColumns =
-            Mathf.Max(1, summonColumns);
+            Mathf.Max(
+                1,
+                summonColumns
+            );
 
         hitColumns =
-            Mathf.Max(1, hitColumns);
+            Mathf.Max(
+                1,
+                hitColumns
+            );
 
         idleFrameRate =
-            Mathf.Max(1f, idleFrameRate);
+            Mathf.Max(
+                1f,
+                idleFrameRate
+            );
 
         walkFrameRate =
-            Mathf.Max(1f, walkFrameRate);
+            Mathf.Max(
+                1f,
+                walkFrameRate
+            );
 
         summonFrameRate =
-            Mathf.Max(1f, summonFrameRate);
+            Mathf.Max(
+                1f,
+                summonFrameRate
+            );
 
         hitFrameRate =
-            Mathf.Max(1f, hitFrameRate);
+            Mathf.Max(
+                1f,
+                hitFrameRate
+            );
 
         deathFrameRate =
-            Mathf.Max(1f, deathFrameRate);
+            Mathf.Max(
+                1f,
+                deathFrameRate
+            );
     }
+
 #endif
 }

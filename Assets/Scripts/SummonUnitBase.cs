@@ -4,105 +4,179 @@ using UnityEngine;
 public class SummonUnitBase : MonoBehaviour
 {
     [Header("리벨")]
-    [SerializeField] protected Transform ribel;
+    [SerializeField]
+    protected Transform ribel;
 
     [Header("기본 능력치")]
-    [SerializeField] protected float maxHealth = 60f;
-    [SerializeField] protected float defense = 0f;
+    [SerializeField]
+    protected float maxHealth = 60f;
+
+    [SerializeField]
+    protected float defense = 0f;
 
     [Header("이동")]
-    [SerializeField] protected float moveSpeed = 3.8f;
-    [SerializeField] protected float stopDistance = 0.5f;
-    [SerializeField] protected float followStartDistance = 0.9f;
+    [SerializeField]
+    protected float moveSpeed = 3.8f;
+
+    [SerializeField]
+    protected float stopDistance = 0.5f;
+
+    [SerializeField]
+    protected float followStartDistance = 0.9f;
 
     [Header("리벨 주변 분산")]
-    [SerializeField] protected float followRadius = 1.6f;
-    [SerializeField] protected float followRadiusRandom = 0.35f;
+    [SerializeField]
+    protected float followRadius = 1.6f;
+
+    [SerializeField]
+    protected float followRadiusRandom = 0.35f;
 
     [Header("적 탐색")]
-    [SerializeField] protected LayerMask enemyLayer;
-    [SerializeField] protected float detectionRange = 5f;
-    [SerializeField] protected float searchInterval = 0.2f;
+    [SerializeField]
+    protected LayerMask enemyLayer;
+
+    [SerializeField]
+    protected float detectionRange = 5f;
+
+    [SerializeField]
+    protected float searchInterval = 0.2f;
 
     [Header("공격 거리")]
-    [Tooltip("이 거리 안에 들어오면 공격 상태로 진입")]
-    [SerializeField] protected float attackRange = 0.9f;
+    [SerializeField]
+    protected float attackRange = 0.22f;
 
-    [Tooltip("공격 상태 진입 후 이 거리까지는 계속 공격")]
-    [SerializeField] protected float attackKeepRange = 1.2f;
+    [SerializeField]
+    protected float attackKeepRange = 0.38f;
 
     [Header("공격")]
-    [SerializeField] protected float attackDamage = 20f;
-    [SerializeField] protected float attackInterval = 1f;
+    [SerializeField]
+    protected float attackDamage = 20f;
 
-    [Tooltip("공격 애니메이션 종료 뒤 짧은 정지 시간")]
-    [SerializeField] protected float postAttackHoldTime = 0.18f;
+    [SerializeField]
+    protected float attackInterval = 1f;
 
-    [Tooltip("공격 도중 적이 조금 움직여도 타격을 허용하는 배율")]
-    [SerializeField] protected float attackHitRangeMultiplier = 1.4f;
+    [SerializeField]
+    protected float postAttackHoldTime = 0.18f;
+
+    [SerializeField]
+    protected float attackHitRangeMultiplier = 1.15f;
 
     [Header("공격 안전장치")]
-    [Tooltip("공격 애니메이션 종료 콜백이 오지 않아도 이 시간이 지나면 공격 잠금을 강제로 해제")]
-    [SerializeField] protected float maxAttackLockTime = 1.5f;
+    [SerializeField]
+    protected float maxAttackLockTime = 1.5f;
 
     [Header("소환 보호")]
-    [Tooltip("완전히 등장한 뒤 추가 무적 시간")]
-    [SerializeField] protected float postSummonInvincibleTime = 0.5f;
+    [SerializeField]
+    protected float postSummonInvincibleTime = 0.5f;
 
     [Header("비주얼")]
-    [SerializeField] protected SummonVisualController visualController;
+    [SerializeField]
+    protected SummonVisualController visualController;
+
+    // =========================================================
+    // Runtime
+    // =========================================================
 
     protected Rigidbody2D rb;
+
     protected Transform currentTarget;
 
     protected bool isFollowingRibel;
+
     protected Vector2 followOffset;
 
     protected bool isRallyingToRibel;
+
     protected bool isRallyingToPoint;
+
     protected Vector2 rallyPoint;
+
+    private Collider2D bodyCollider;
 
     private float currentHealth;
 
     private float searchTimer;
+
     private float attackTimer;
+
     private float postAttackHoldTimer;
 
-    // 공격 잠금이 걸린 시간
     private float attackLockTimer;
 
     private bool isDead;
+
     private bool isAttacking;
+
     private bool isInAttackMode;
 
     private bool isSummoning;
+
     private float summonInvincibleTimer;
 
     private Collider2D[] cachedColliders;
+
     private bool[] colliderOriginalStates;
 
-    public float CurrentHealth => currentHealth;
-    public float MaxHealth => maxHealth;
-    public float Defense => defense;
-    public float DetectionRange => detectionRange;
+    private SummonSpawnGroup summonGroup;
 
-    public bool IsRallyingToRibel => isRallyingToRibel;
-    public bool IsRallyingToPoint => isRallyingToPoint;
+    private SummonData summonData;
 
-    public bool IsDead => isDead;
-    public bool IsSummoning => isSummoning;
+    private SummonBodySize summonBodySize =
+        SummonBodySize.Medium;
+
+    // =========================================================
+    // Property
+    // =========================================================
+
+    public float CurrentHealth =>
+        currentHealth;
+
+    public float MaxHealth =>
+        maxHealth;
+
+    public float Defense =>
+        defense;
+
+    public float DetectionRange =>
+        detectionRange;
+
+    public bool IsRallyingToRibel =>
+        isRallyingToRibel;
+
+    public bool IsRallyingToPoint =>
+        isRallyingToPoint;
+
+    public bool IsDead =>
+        isDead;
+
+    public bool IsSummoning =>
+        isSummoning;
+
+    public SummonBodySize SummonBodySize =>
+        summonBodySize;
+
+    public int GroupAliveMembers =>
+        summonGroup != null
+            ? summonGroup.AliveMembers
+            : 1;
+
+    public int GroupTotalMembers =>
+        summonGroup != null
+            ? summonGroup.TotalMembers
+            : 1;
 
     public bool IsSummonInvincible =>
         isSummoning ||
         summonInvincibleTimer > 0f;
 
     // =========================================================
-    // 초기화
+    // Unity
     // =========================================================
 
     protected virtual void Awake()
     {
-        rb = GetComponent<Rigidbody2D>();
+        rb =
+            GetComponent<Rigidbody2D>();
 
         if (visualController == null)
         {
@@ -110,9 +184,34 @@ public class SummonUnitBase : MonoBehaviour
                 GetComponentInChildren<SummonVisualController>();
         }
 
-        currentHealth = maxHealth;
+        bodyCollider =
+            GetComponent<Collider2D>();
+
+        if (bodyCollider == null)
+        {
+            Collider2D[] colliders =
+                GetComponentsInChildren<Collider2D>();
+
+            for (int i = 0;
+                 i < colliders.Length;
+                 i++)
+            {
+                if (colliders[i] != null &&
+                    !colliders[i].isTrigger)
+                {
+                    bodyCollider =
+                        colliders[i];
+
+                    break;
+                }
+            }
+        }
+
+        currentHealth =
+            maxHealth;
 
         CacheColliders();
+
         CreateFollowOffset();
     }
 
@@ -136,7 +235,9 @@ public class SummonUnitBase : MonoBehaviour
         }
 
         SearchTarget();
+
         UpdateTimers();
+
         UpdateAttackSafety();
     }
 
@@ -146,10 +247,51 @@ public class SummonUnitBase : MonoBehaviour
             isSummoning)
         {
             StopMovement();
+
             return;
         }
 
         UpdateMovement();
+    }
+
+    // =========================================================
+    // ★ Manager가 소환 직후 호출
+    // =========================================================
+
+    public void InitializeSummon(
+        SummonSpawnGroup group,
+        SummonData data)
+    {
+        summonGroup =
+            group;
+
+        summonData =
+            data;
+
+        if (summonData != null)
+        {
+            summonBodySize =
+                summonData.SummonBodySize;
+        }
+
+        if (visualController != null)
+        {
+            visualController.ApplySummonData(
+                summonData
+            );
+        }
+    }
+
+    // 이전 호출 호환
+    public void InitializeSummonGroup(
+        SummonSpawnGroup group,
+        SummonBodySize bodySize)
+    {
+        summonGroup =
+            group;
+
+        summonBodySize =
+            bodySize;
     }
 
     // =========================================================
@@ -163,20 +305,28 @@ public class SummonUnitBase : MonoBehaviour
             return;
         }
 
-        isSummoning = true;
+        isSummoning =
+            true;
 
-        summonInvincibleTimer = 0f;
+        summonInvincibleTimer =
+            0f;
 
-        currentTarget = null;
+        currentTarget =
+            null;
 
         ResetAttackState();
 
-        isRallyingToRibel = false;
-        isRallyingToPoint = false;
+        isRallyingToRibel =
+            false;
+
+        isRallyingToPoint =
+            false;
 
         StopMovement();
 
-        SetCollidersEnabled(false);
+        SetCollidersEnabled(
+            false
+        );
 
         if (visualController != null)
         {
@@ -197,7 +347,8 @@ public class SummonUnitBase : MonoBehaviour
             return;
         }
 
-        isSummoning = false;
+        isSummoning =
+            false;
 
         summonInvincibleTimer =
             postSummonInvincibleTime;
@@ -220,7 +371,8 @@ public class SummonUnitBase : MonoBehaviour
 
         if (summonInvincibleTimer <= 0f)
         {
-            summonInvincibleTimer = 0f;
+            summonInvincibleTimer =
+                0f;
 
             RestoreColliders();
         }
@@ -293,6 +445,49 @@ public class SummonUnitBase : MonoBehaviour
     }
 
     // =========================================================
+    // 거리
+    // =========================================================
+
+    private float GetTargetDistance()
+    {
+        if (currentTarget == null)
+        {
+            return Mathf.Infinity;
+        }
+
+        Collider2D targetCollider =
+            currentTarget.GetComponent<Collider2D>();
+
+        if (targetCollider == null)
+        {
+            targetCollider =
+                currentTarget
+                    .GetComponentInChildren<Collider2D>();
+        }
+
+        if (bodyCollider != null &&
+            targetCollider != null &&
+            bodyCollider.enabled &&
+            targetCollider.enabled)
+        {
+            ColliderDistance2D result =
+                bodyCollider.Distance(
+                    targetCollider
+                );
+
+            return Mathf.Max(
+                0f,
+                result.distance
+            );
+        }
+
+        return Vector2.Distance(
+            rb.position,
+            currentTarget.position
+        );
+    }
+
+    // =========================================================
     // 피해
     // =========================================================
 
@@ -318,9 +513,11 @@ public class SummonUnitBase : MonoBehaviour
 
         if (currentHealth <= 0f)
         {
-            currentHealth = 0f;
+            currentHealth =
+                0f;
 
             Die();
+
             return;
         }
 
@@ -341,20 +538,36 @@ public class SummonUnitBase : MonoBehaviour
             return;
         }
 
-        isDead = true;
+        isDead =
+            true;
 
-        currentHealth = 0f;
-        currentTarget = null;
+        currentHealth =
+            0f;
+
+        currentTarget =
+            null;
 
         ResetAttackState();
 
-        isSummoning = false;
-        summonInvincibleTimer = 0f;
+        isSummoning =
+            false;
+
+        summonInvincibleTimer =
+            0f;
 
         StopMovement();
-        SetCollidersEnabled(false);
 
-        if (SummonManager.Instance != null)
+        SetCollidersEnabled(
+            false
+        );
+
+        // 그룹의 마지막 개체가 죽었을 때만
+        // 용량 반환
+        if (summonGroup != null)
+        {
+            summonGroup.NotifyMemberDied();
+        }
+        else if (SummonManager.Instance != null)
         {
             SummonManager.Instance.ReleaseCapacity(
                 1
@@ -375,7 +588,9 @@ public class SummonUnitBase : MonoBehaviour
 
     private void DestroyAfterDeath()
     {
-        Destroy(gameObject);
+        Destroy(
+            gameObject
+        );
     }
 
     // =========================================================
@@ -452,10 +667,14 @@ public class SummonUnitBase : MonoBehaviour
 
         CancelCombatState();
 
-        isFollowingRibel = false;
+        isFollowingRibel =
+            false;
 
-        isRallyingToPoint = false;
-        isRallyingToRibel = true;
+        isRallyingToPoint =
+            false;
+
+        isRallyingToRibel =
+            true;
     }
 
     public virtual void RallyToPoint(
@@ -469,62 +688,72 @@ public class SummonUnitBase : MonoBehaviour
 
         CancelCombatState();
 
-        isFollowingRibel = false;
+        isFollowingRibel =
+            false;
 
-        isRallyingToRibel = false;
-        isRallyingToPoint = true;
+        isRallyingToRibel =
+            false;
+
+        isRallyingToPoint =
+            true;
 
         rallyPoint =
             point +
-            followOffset * 0.45f;
+            followOffset *
+            0.45f;
     }
 
     private void CancelCombatState()
     {
-        currentTarget = null;
+        currentTarget =
+            null;
 
         ResetAttackState();
     }
 
-    // =========================================================
-    // 공격 상태 초기화
-    // =========================================================
-
     private void ResetAttackState()
     {
-        isAttacking = false;
-        isInAttackMode = false;
+        isAttacking =
+            false;
 
-        attackTimer = 0f;
-        postAttackHoldTimer = 0f;
-        attackLockTimer = 0f;
+        isInAttackMode =
+            false;
+
+        attackTimer =
+            0f;
+
+        postAttackHoldTimer =
+            0f;
+
+        attackLockTimer =
+            0f;
     }
 
     // =========================================================
-    // ★ 공격 잠김 안전장치
+    // 공격 Safety
     // =========================================================
 
     private void UpdateAttackSafety()
     {
         if (!isAttacking)
         {
-            attackLockTimer = 0f;
+            attackLockTimer =
+                0f;
+
             return;
         }
 
-        // 타깃 자체가 사라졌다면 바로 공격 잠금 해제
         if (currentTarget == null ||
             !currentTarget.gameObject.activeInHierarchy)
         {
             ForceReleaseAttack();
+
             return;
         }
 
         attackLockTimer +=
             Time.deltaTime;
 
-        // 애니메이션 콜백이 오지 않아도
-        // 일정 시간이 지나면 무조건 복구
         if (attackLockTimer >=
             maxAttackLockTime)
         {
@@ -534,46 +763,43 @@ public class SummonUnitBase : MonoBehaviour
 
     private void ForceReleaseAttack()
     {
-        isAttacking = false;
+        isAttacking =
+            false;
 
-        attackLockTimer = 0f;
+        attackLockTimer =
+            0f;
 
-        // 강제로 풀린 뒤 바로 연속 난타하지 않도록
-        // 기존 공격 쿨타임 적용
         attackTimer =
             Mathf.Max(
                 attackTimer,
                 attackInterval
             );
 
-        postAttackHoldTimer = 0f;
+        postAttackHoldTimer =
+            0f;
 
-        // 타깃이 없으면 공격 모드도 종료
         if (currentTarget == null ||
             !currentTarget.gameObject.activeInHierarchy)
         {
-            currentTarget = null;
-            isInAttackMode = false;
+            currentTarget =
+                null;
+
+            isInAttackMode =
+                false;
+
             return;
         }
 
-        float distance =
-            Vector2.Distance(
-                rb.position,
-                currentTarget.position
-            );
-
-        // 적이 이미 멀어졌다면 바로 추적할 수 있도록
-        // 공격 모드 해제
-        if (distance >
+        if (GetTargetDistance() >
             attackKeepRange)
         {
-            isInAttackMode = false;
+            isInAttackMode =
+                false;
         }
     }
 
     // =========================================================
-    // 적 탐색
+    // Target
     // =========================================================
 
     protected virtual void SearchTarget()
@@ -581,8 +807,11 @@ public class SummonUnitBase : MonoBehaviour
         if (isRallyingToRibel ||
             isRallyingToPoint)
         {
-            currentTarget = null;
-            isInAttackMode = false;
+            currentTarget =
+                null;
+
+            isInAttackMode =
+                false;
 
             return;
         }
@@ -598,7 +827,6 @@ public class SummonUnitBase : MonoBehaviour
         searchTimer =
             searchInterval;
 
-        // 이미 잡은 적 유지
         if (currentTarget != null)
         {
             float distance =
@@ -610,13 +838,17 @@ public class SummonUnitBase : MonoBehaviour
             if (!currentTarget.gameObject.activeInHierarchy ||
                 distance > detectionRange)
             {
-                currentTarget = null;
+                currentTarget =
+                    null;
 
-                isInAttackMode = false;
+                isInAttackMode =
+                    false;
 
-                // 적이 사라질 때 공격 잠금도 같이 해제
-                isAttacking = false;
-                attackLockTimer = 0f;
+                isAttacking =
+                    false;
+
+                attackLockTimer =
+                    0f;
             }
         }
 
@@ -632,7 +864,7 @@ public class SummonUnitBase : MonoBehaviour
                 enemyLayer
             );
 
-        Transform nearestEnemy =
+        Transform nearest =
             null;
 
         float nearestDistance =
@@ -663,60 +895,55 @@ public class SummonUnitBase : MonoBehaviour
                 nearestDistance =
                     distance;
 
-                nearestEnemy =
+                nearest =
                     enemy.transform;
             }
         }
 
         currentTarget =
-            nearestEnemy;
+            nearest;
 
         isInAttackMode =
             false;
     }
 
     // =========================================================
-    // 이동 / 행동
+    // Movement
     // =========================================================
 
     protected virtual void UpdateMovement()
     {
-        if (isAttacking)
+        if (isAttacking ||
+            postAttackHoldTimer > 0f)
         {
             StopMovement();
-            return;
-        }
 
-        if (postAttackHoldTimer > 0f)
-        {
-            StopMovement();
             return;
         }
 
         if (isRallyingToRibel)
         {
             UpdateRallyToRibel();
+
             return;
         }
 
         if (isRallyingToPoint)
         {
             UpdateRallyToPoint();
+
             return;
         }
 
         if (currentTarget != null)
         {
             FollowOrAttackTarget();
+
             return;
         }
 
         FollowRibel();
     }
-
-    // =========================================================
-    // 리벨 집결
-    // =========================================================
 
     protected virtual void UpdateRallyToRibel()
     {
@@ -727,6 +954,7 @@ public class SummonUnitBase : MonoBehaviour
             if (ribel == null)
             {
                 StopMovement();
+
                 return;
             }
         }
@@ -735,58 +963,58 @@ public class SummonUnitBase : MonoBehaviour
             (Vector2)ribel.position +
             followOffset;
 
-        float distance =
-            Vector2.Distance(
+        if (Vector2.Distance(
                 rb.position,
-                destination
-            );
-
-        if (distance <=
+                destination) <=
             stopDistance)
         {
-            isRallyingToRibel = false;
-            isFollowingRibel = false;
+            isRallyingToRibel =
+                false;
+
+            isFollowingRibel =
+                false;
 
             StopMovement();
+
             return;
         }
 
-        MoveToward(destination);
+        MoveToward(
+            destination
+        );
     }
-
-    // =========================================================
-    // 지정 위치 집결
-    // =========================================================
 
     protected virtual void UpdateRallyToPoint()
     {
-        float distance =
-            Vector2.Distance(
+        if (Vector2.Distance(
                 rb.position,
-                rallyPoint
-            );
-
-        if (distance <=
+                rallyPoint) <=
             stopDistance)
         {
-            isRallyingToPoint = false;
+            isRallyingToPoint =
+                false;
 
             StopMovement();
+
             return;
         }
 
-        MoveToward(rallyPoint);
+        MoveToward(
+            rallyPoint
+        );
     }
 
     // =========================================================
-    // 공통 공격 AI
+    // Attack AI
     // =========================================================
 
     protected virtual void FollowOrAttackTarget()
     {
         if (currentTarget == null)
         {
-            isInAttackMode = false;
+            isInAttackMode =
+                false;
+
             return;
         }
 
@@ -795,16 +1023,10 @@ public class SummonUnitBase : MonoBehaviour
             rb.position;
 
         float distance =
-            toTarget.magnitude;
-
-        // =====================================================
-        // 이미 공격 모드
-        // =====================================================
+            GetTargetDistance();
 
         if (isInAttackMode)
         {
-            // 적이 확실히 사거리 밖으로 빠졌을 때만
-            // 공격 모드 해제
             if (distance >
                 attackKeepRange)
             {
@@ -824,19 +1046,16 @@ public class SummonUnitBase : MonoBehaviour
                 toTarget.sqrMagnitude >
                 0.0001f)
             {
-                visualController.SetFacingDirection(
-                    toTarget
-                );
+                visualController
+                    .SetCombatFacingDirection(
+                        toTarget
+                    );
             }
 
             TryAttack();
 
             return;
         }
-
-        // =====================================================
-        // 공격 모드 진입
-        // =====================================================
 
         if (distance <=
             attackRange)
@@ -850,9 +1069,10 @@ public class SummonUnitBase : MonoBehaviour
                 toTarget.sqrMagnitude >
                 0.0001f)
             {
-                visualController.SetFacingDirection(
-                    toTarget
-                );
+                visualController
+                    .SetCombatFacingDirection(
+                        toTarget
+                    );
             }
 
             TryAttack();
@@ -860,18 +1080,10 @@ public class SummonUnitBase : MonoBehaviour
             return;
         }
 
-        // =====================================================
-        // 사거리 밖
-        // =====================================================
-
         MoveToward(
             currentTarget.position
         );
     }
-
-    // =========================================================
-    // 공격
-    // =========================================================
 
     protected virtual void TryAttack()
     {
@@ -898,16 +1110,11 @@ public class SummonUnitBase : MonoBehaviour
 
         if (enemy == null)
         {
-            currentTarget = null;
+            currentTarget =
+                null;
 
             isInAttackMode =
                 false;
-
-            isAttacking =
-                false;
-
-            attackLockTimer =
-                0f;
 
             return;
         }
@@ -920,15 +1127,15 @@ public class SummonUnitBase : MonoBehaviour
             toTarget.sqrMagnitude >
             0.0001f)
         {
-            visualController.SetFacingDirection(
-                toTarget
-            );
+            visualController
+                .SetCombatFacingDirection(
+                    toTarget
+                );
         }
 
         isAttacking =
             true;
 
-        // ★ 공격 잠금 시간 측정 시작
         attackLockTimer =
             0f;
 
@@ -944,19 +1151,14 @@ public class SummonUnitBase : MonoBehaviour
         else
         {
             ApplyAttackDamage();
+
             FinishAttack();
         }
     }
 
-    // =========================================================
-    // 실제 타격
-    // Attack Hit Frame에서 호출
-    // =========================================================
-
     protected virtual void ApplyAttackDamage()
     {
         if (isDead ||
-            isSummoning ||
             currentTarget == null)
         {
             return;
@@ -978,17 +1180,11 @@ public class SummonUnitBase : MonoBehaviour
             return;
         }
 
-        float distance =
-            Vector2.Distance(
-                rb.position,
-                currentTarget.position
-            );
-
         float validHitRange =
             attackKeepRange *
             attackHitRangeMultiplier;
 
-        if (distance >
+        if (GetTargetDistance() >
             validHitRange)
         {
             return;
@@ -999,14 +1195,8 @@ public class SummonUnitBase : MonoBehaviour
         );
     }
 
-    // =========================================================
-    // 정상 공격 종료
-    // =========================================================
-
     protected virtual void FinishAttack()
     {
-        // 이미 안전장치가 먼저 풀었다면
-        // 중복 종료 방지
         if (!isAttacking)
         {
             return;
@@ -1026,7 +1216,7 @@ public class SummonUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // 타이머
+    // Timer
     // =========================================================
 
     protected virtual void UpdateTimers()
@@ -1036,10 +1226,11 @@ public class SummonUnitBase : MonoBehaviour
             attackTimer -=
                 Time.deltaTime;
 
-            if (attackTimer < 0f)
-            {
-                attackTimer = 0f;
-            }
+            attackTimer =
+                Mathf.Max(
+                    0f,
+                    attackTimer
+                );
         }
 
         if (postAttackHoldTimer > 0f)
@@ -1047,15 +1238,16 @@ public class SummonUnitBase : MonoBehaviour
             postAttackHoldTimer -=
                 Time.deltaTime;
 
-            if (postAttackHoldTimer < 0f)
-            {
-                postAttackHoldTimer = 0f;
-            }
+            postAttackHoldTimer =
+                Mathf.Max(
+                    0f,
+                    postAttackHoldTimer
+                );
         }
     }
 
     // =========================================================
-    // 리벨 추종
+    // Follow
     // =========================================================
 
     protected virtual void FollowRibel()
@@ -1063,6 +1255,7 @@ public class SummonUnitBase : MonoBehaviour
         if (ribel == null)
         {
             StopMovement();
+
             return;
         }
 
@@ -1083,6 +1276,7 @@ public class SummonUnitBase : MonoBehaviour
                 false;
 
             StopMovement();
+
             return;
         }
 
@@ -1097,6 +1291,7 @@ public class SummonUnitBase : MonoBehaviour
             else
             {
                 StopMovement();
+
                 return;
             }
         }
@@ -1105,10 +1300,6 @@ public class SummonUnitBase : MonoBehaviour
             destination
         );
     }
-
-    // =========================================================
-    // 이동
-    // =========================================================
 
     protected virtual void MoveToward(
         Vector2 destination)
@@ -1124,6 +1315,7 @@ public class SummonUnitBase : MonoBehaviour
             0.001f)
         {
             StopMovement();
+
             return;
         }
 
@@ -1132,16 +1324,18 @@ public class SummonUnitBase : MonoBehaviour
 
         if (visualController != null)
         {
-            visualController.SetFacingDirection(
-                direction
-            );
+            visualController
+                .SetFacingDirection(
+                    direction
+                );
 
-            visualController.SetMoving(
-                true
-            );
+            visualController
+                .SetMoving(
+                    true
+                );
         }
 
-        Vector2 nextPosition =
+        Vector2 next =
             Vector2.MoveTowards(
                 rb.position,
                 destination,
@@ -1150,31 +1344,32 @@ public class SummonUnitBase : MonoBehaviour
             );
 
         rb.MovePosition(
-            nextPosition
+            next
         );
     }
 
-    // =========================================================
-    // 정지
-    // =========================================================
-
     protected virtual void StopMovement()
     {
-        rb.velocity =
-            Vector2.zero;
+        if (rb != null)
+        {
+            rb.velocity =
+                Vector2.zero;
 
-        rb.angularVelocity =
-            0f;
+            rb.angularVelocity =
+                0f;
+        }
 
         if (visualController != null)
         {
-            visualController.SetMoving(
-                false
-            );
+            visualController
+                .SetMoving(
+                    false
+                );
         }
     }
 
 #if UNITY_EDITOR
+
     protected virtual void OnValidate()
     {
         maxHealth =
@@ -1203,20 +1398,9 @@ public class SummonUnitBase : MonoBehaviour
 
         followStartDistance =
             Mathf.Max(
-                stopDistance + 0.05f,
+                stopDistance +
+                0.05f,
                 followStartDistance
-            );
-
-        followRadius =
-            Mathf.Max(
-                0.1f,
-                followRadius
-            );
-
-        followRadiusRandom =
-            Mathf.Max(
-                0f,
-                followRadiusRandom
             );
 
         detectionRange =
@@ -1228,7 +1412,7 @@ public class SummonUnitBase : MonoBehaviour
         attackRange =
             Mathf.Clamp(
                 attackRange,
-                0.05f,
+                0.01f,
                 detectionRange
             );
 
@@ -1239,34 +1423,10 @@ public class SummonUnitBase : MonoBehaviour
                 detectionRange
             );
 
-        searchInterval =
-            Mathf.Max(
-                0.05f,
-                searchInterval
-            );
-
-        attackDamage =
-            Mathf.Max(
-                0f,
-                attackDamage
-            );
-
         attackInterval =
             Mathf.Max(
                 0.05f,
                 attackInterval
-            );
-
-        postAttackHoldTime =
-            Mathf.Max(
-                0f,
-                postAttackHoldTime
-            );
-
-        attackHitRangeMultiplier =
-            Mathf.Max(
-                1f,
-                attackHitRangeMultiplier
             );
 
         maxAttackLockTime =
@@ -1274,12 +1434,7 @@ public class SummonUnitBase : MonoBehaviour
                 0.2f,
                 maxAttackLockTime
             );
-
-        postSummonInvincibleTime =
-            Mathf.Max(
-                0f,
-                postSummonInvincibleTime
-            );
     }
+
 #endif
 }

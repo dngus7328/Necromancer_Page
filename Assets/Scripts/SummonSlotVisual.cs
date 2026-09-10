@@ -1,151 +1,365 @@
 using System.Collections;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class SummonSlotVisual : MonoBehaviour
 {
-    [Header("슬롯 번호")]
-    [Range(0, 7)]
-    [SerializeField] private int slotIndex;
+    // =========================================================
+    // 카드 프리팹 표시
+    // =========================================================
 
-    [Header("카드 UI")]
-    [Tooltip("실제로 위로 솟아오를 카드 부모")]
-    [SerializeField] private RectTransform cardRoot;
+    [Header("카드 프리팹 표시")]
 
-    [Tooltip("카드 일러스트")]
-    [SerializeField] private Image cardImage;
+    [Tooltip("카드 프리팹이 생성될 위치")]
+    [SerializeField]
+    private RectTransform cardVisualRoot;
 
-    [Tooltip("카드가 없을 때 보이는 기존 빈 슬롯")]
-    [SerializeField] private GameObject emptyVisual;
+    [Tooltip("SummonData가 없는 빈 슬롯에 표시할 기본 카드 프리팹")]
+    [SerializeField]
+    private GameObject defaultSlotVisualPrefab;
 
-    [Tooltip("카드 뒤에서 빛나는 이미지")]
-    [SerializeField] private Image glowImage;
+    // =========================================================
+    // 공통 UI
+    // =========================================================
+
+    [Header("공통 UI")]
+
+    [Tooltip("기존 CooldownFill")]
+    [SerializeField]
+    private Image cooldownFill;
+
+    [Tooltip("코스트 표시용 Text (TMP)")]
+    [SerializeField]
+    private TMP_Text costText;
+
+    // =========================================================
+    // 선택 연출
+    // =========================================================
 
     [Header("선택 연출")]
-    [Tooltip("선택 시 위로 올라가는 거리")]
-    [SerializeField] private float riseDistance = 14f;
 
-    [Tooltip("선택 시 확대")]
-    [SerializeField] private float selectedScale = 1.06f;
+    [Tooltip("선택됐을 때 위로 올라가는 거리")]
+    [SerializeField]
+    private float selectedMoveY = 12f;
 
-    [Tooltip("올라가고 내려오는 속도")]
-    [SerializeField] private float moveSpeed = 14f;
+    [Tooltip("선택됐을 때 확대 배율")]
+    [SerializeField]
+    private float selectedScale = 1.05f;
 
-    [Header("Glow")]
-    [SerializeField] private float glowMinAlpha = 0.18f;
-    [SerializeField] private float glowMaxAlpha = 0.6f;
-    [SerializeField] private float glowPulseSpeed = 2.5f;
+    [Tooltip("선택/해제 이동 속도")]
+    [SerializeField]
+    private float transitionSpeed = 12f;
 
-    private Vector2 originalPosition;
+    // =========================================================
+    // 소환 후 복귀 연출
+    // =========================================================
+
+    [Header("소환 후 복귀")]
+
+    [Tooltip("소환 직후 순간적으로 줄어드는 크기")]
+    [SerializeField]
+    private float summonReturnScale = 0.88f;
+
+    [Tooltip("원래 크기로 돌아오는 시간")]
+    [SerializeField]
+    private float summonReturnDuration = 0.16f;
+
+    // =========================================================
+    // Runtime
+    // =========================================================
+
+    private RectTransform rectTransform;
+
+    private Vector2 originalAnchoredPosition;
+
     private Vector3 originalScale;
 
-    private bool hasCard;
+    private GameObject currentCardVisual;
+
+    private GameObject currentVisualPrefab;
+
+    private bool hasSummonData;
+
     private bool isSelected;
 
-    private bool initialized;
+    private Coroutine summonReturnCoroutine;
 
-    private Coroutine moveRoutine;
+    // =========================================================
+    // Property
+    // =========================================================
 
-    public int SlotIndex => slotIndex;
-    public bool HasCard => hasCard;
-    public bool IsSelected => isSelected;
+    public bool HasSummonData =>
+        hasSummonData;
+
+    public Image CooldownFill =>
+        cooldownFill;
+
+    // =========================================================
+    // Unity
+    // =========================================================
 
     private void Awake()
     {
-        Initialize();
-    }
+        rectTransform =
+            GetComponent<RectTransform>();
 
-    private void OnEnable()
-    {
-        Initialize();
+        if (rectTransform != null)
+        {
+            originalAnchoredPosition =
+                rectTransform.anchoredPosition;
+        }
 
-        // 다시 활성화될 때 현재 선택 상태에 맞춰 즉시 적용
-        ApplySelectionInstant();
+        originalScale =
+            transform.localScale;
+
+        FindReferencesAutomatically();
     }
 
     private void Update()
     {
-        UpdateGlow();
+        UpdateSelectionVisual();
     }
 
     // =========================================================
-    // 초기화
+    // 자동 참조
     // =========================================================
 
-    private void Initialize()
+    private void FindReferencesAutomatically()
     {
-        if (initialized)
+        if (cardVisualRoot == null)
+        {
+            Transform found =
+                transform.Find("CardVisualRoot");
+
+            if (found != null)
+            {
+                cardVisualRoot =
+                    found as RectTransform;
+            }
+        }
+
+        if (cooldownFill == null)
+        {
+            Transform found =
+                transform.Find("CooldownFill");
+
+            if (found != null)
+            {
+                cooldownFill =
+                    found.GetComponent<Image>();
+            }
+        }
+
+        if (costText == null)
+        {
+            Transform found =
+                transform.Find("Text (TMP)");
+
+            if (found != null)
+            {
+                costText =
+                    found.GetComponent<TMP_Text>();
+            }
+        }
+    }
+
+    // =========================================================
+    // SummonData 적용
+    // =========================================================
+
+    public void SetData(
+        SummonData data)
+    {
+        FindReferencesAutomatically();
+
+        hasSummonData =
+            data != null;
+
+        GameObject wantedPrefab;
+
+        if (data != null &&
+            data.SlotVisualPrefab != null)
+        {
+            wantedPrefab =
+                data.SlotVisualPrefab;
+        }
+        else
+        {
+            wantedPrefab =
+                defaultSlotVisualPrefab;
+        }
+
+        SetCardVisual(
+            wantedPrefab
+        );
+
+        // -----------------------------------------------------
+        // 코스트
+        // -----------------------------------------------------
+
+        if (costText != null)
+        {
+            if (data != null)
+            {
+                costText.text =
+    Mathf.RoundToInt(
+        data.ManaCost
+    ).ToString();
+
+                costText.gameObject.SetActive(
+                    true
+                );
+            }
+            else
+            {
+                costText.text =
+                    "";
+
+                costText.gameObject.SetActive(
+                    false
+                );
+            }
+        }
+
+        // -----------------------------------------------------
+        // 쿨다운
+        // -----------------------------------------------------
+
+        if (cooldownFill != null)
+        {
+            cooldownFill.fillAmount =
+                0f;
+
+            cooldownFill.gameObject.SetActive(
+                data != null
+            );
+        }
+
+        // -----------------------------------------------------
+        // 빈 슬롯이면 선택 해제
+        // -----------------------------------------------------
+
+        if (data == null)
+        {
+            SetSelected(
+                false
+            );
+        }
+    }
+
+    // =========================================================
+    // 카드 프리팹 생성 / 교체
+    // =========================================================
+
+    private void SetCardVisual(
+        GameObject prefab)
+    {
+        // 같은 프리팹이 이미 떠 있으면 다시 만들 필요 없음
+        if (currentVisualPrefab ==
+            prefab &&
+            currentCardVisual != null)
         {
             return;
         }
 
-        if (cardRoot == null)
+        // 기존 카드 제거
+        if (currentCardVisual != null)
         {
-            cardRoot = GetComponent<RectTransform>();
-        }
-
-        if (cardRoot != null)
-        {
-            originalPosition =
-                cardRoot.anchoredPosition;
-
-            originalScale =
-                cardRoot.localScale;
-        }
-
-        hasCard =
-            cardImage != null &&
-            cardImage.sprite != null;
-
-        ApplyCardState();
-
-        SetGlowAlpha(0f);
-
-        initialized = true;
-    }
-
-    // =========================================================
-    // 카드 지정
-    // =========================================================
-
-    public void SetCard(Sprite cardSprite)
-    {
-        Initialize();
-
-        if (cardImage != null)
-        {
-            cardImage.sprite =
-                cardSprite;
-        }
-
-        hasCard =
-            cardSprite != null;
-
-        ApplyCardState();
-
-        if (!hasCard)
-        {
-            SetSelected(false);
-        }
-    }
-
-    // =========================================================
-    // 카드 있음 / 없음
-    // =========================================================
-
-    private void ApplyCardState()
-    {
-        if (cardImage != null)
-        {
-            cardImage.enabled =
-                hasCard;
-        }
-
-        if (emptyVisual != null)
-        {
-            emptyVisual.SetActive(
-                !hasCard
+            Destroy(
+                currentCardVisual
             );
+
+            currentCardVisual =
+                null;
+        }
+
+        currentVisualPrefab =
+            prefab;
+
+        if (prefab == null ||
+            cardVisualRoot == null)
+        {
+            return;
+        }
+
+        // -----------------------------------------------------
+        // 프리팹 생성
+        //
+        // false = 프리팹의 로컬 Transform 값을 최대한 유지
+        // -----------------------------------------------------
+
+        currentCardVisual =
+            Instantiate(
+                prefab,
+                cardVisualRoot,
+                false
+            );
+
+        RectTransform visualRect =
+            currentCardVisual
+                .GetComponent<RectTransform>();
+
+        if (visualRect != null)
+        {
+            // =================================================
+            // 중요
+            //
+            // 프리팹의:
+            // Width
+            // Height
+            // Anchor
+            // Pivot
+            //
+            // 전부 건드리지 않음.
+            //
+            // 위치만 CardVisualRoot 중심으로 옮김.
+            // =================================================
+
+            visualRect.anchoredPosition =
+                Vector2.zero;
+
+            visualRect.localScale =
+                Vector3.one;
+
+            visualRect.localRotation =
+                Quaternion.identity;
+        }
+        else
+        {
+            // UI RectTransform이 아닌 경우 안전 처리
+            Transform visualTransform =
+                currentCardVisual.transform;
+
+            visualTransform.localPosition =
+                Vector3.zero;
+
+            visualTransform.localScale =
+                Vector3.one;
+
+            visualTransform.localRotation =
+                Quaternion.identity;
+        }
+
+        // -----------------------------------------------------
+        // 카드 프리팹이 입력을 가리지 않도록 처리
+        // -----------------------------------------------------
+
+        Graphic[] graphics =
+            currentCardVisual
+                .GetComponentsInChildren<Graphic>(
+                    true
+                );
+
+        for (int i = 0;
+             i < graphics.Length;
+             i++)
+        {
+            if (graphics[i] != null)
+            {
+                graphics[i].raycastTarget =
+                    false;
+            }
         }
     }
 
@@ -153,278 +367,223 @@ public class SummonSlotVisual : MonoBehaviour
     // 선택
     // =========================================================
 
-    public void SetSelected(bool selected)
+    public void SetSelected(
+        bool selected)
     {
-        // 비활성 오브젝트에서 StartCoroutine을 호출하면
-        // Unity 오류가 발생하므로 상태만 저장
-        if (!gameObject.activeInHierarchy)
+        // 데이터 없는 슬롯은 선택 불가
+        if (!hasSummonData)
         {
-            isSelected = selected;
+            isSelected =
+                false;
+
             return;
-        }
-
-        Initialize();
-
-        if (!hasCard)
-        {
-            selected = false;
         }
 
         isSelected =
             selected;
+    }
 
-        if (cardRoot == null)
+    private void UpdateSelectionVisual()
+    {
+        if (rectTransform == null)
         {
             return;
         }
 
-        Vector2 targetPosition =
-            originalPosition;
+        // -----------------------------------------------------
+        // 위치
+        // -----------------------------------------------------
 
-        Vector3 targetScale =
-            originalScale;
+        Vector2 targetPosition =
+            originalAnchoredPosition;
 
         if (isSelected)
         {
             targetPosition.y +=
-                riseDistance;
-
-            targetScale =
-                originalScale *
-                selectedScale;
+                selectedMoveY;
         }
 
-        if (moveRoutine != null)
-        {
-            StopCoroutine(
-                moveRoutine
-            );
-        }
-
-        moveRoutine =
-            StartCoroutine(
-                AnimateCard(
-                    targetPosition,
-                    targetScale
-                )
+        rectTransform.anchoredPosition =
+            Vector2.Lerp(
+                rectTransform.anchoredPosition,
+                targetPosition,
+                transitionSpeed *
+                Time.unscaledDeltaTime
             );
 
-        if (!isSelected)
+        // -----------------------------------------------------
+        // 크기
+        // -----------------------------------------------------
+
+        Vector3 targetScale =
+            isSelected
+                ? originalScale *
+                  selectedScale
+                : originalScale;
+
+        if (summonReturnCoroutine ==
+            null)
         {
-            SetGlowAlpha(0f);
+            transform.localScale =
+                Vector3.Lerp(
+                    transform.localScale,
+                    targetScale,
+                    transitionSpeed *
+                    Time.unscaledDeltaTime
+                );
         }
     }
 
     // =========================================================
-    // 활성화 순간 상태 적용
-    // =========================================================
-
-    private void ApplySelectionInstant()
-    {
-        if (!initialized ||
-            cardRoot == null)
-        {
-            return;
-        }
-
-        Vector2 position =
-            originalPosition;
-
-        Vector3 scale =
-            originalScale;
-
-        if (isSelected &&
-            hasCard)
-        {
-            position.y +=
-                riseDistance;
-
-            scale =
-                originalScale *
-                selectedScale;
-        }
-
-        cardRoot.anchoredPosition =
-            position;
-
-        cardRoot.localScale =
-            scale;
-
-        if (!isSelected)
-        {
-            SetGlowAlpha(0f);
-        }
-    }
-
-    // =========================================================
-    // 소환 성공
+    // 소환 후 복귀
     // =========================================================
 
     public void PlaySummonReturn()
     {
-        SetSelected(false);
-    }
-
-    // =========================================================
-    // 선택 이동
-    // =========================================================
-
-    private IEnumerator AnimateCard(
-        Vector2 targetPosition,
-        Vector3 targetScale)
-    {
-        if (cardRoot == null)
+        if (!hasSummonData ||
+            !gameObject.activeInHierarchy)
         {
-            yield break;
+            return;
         }
 
-        while (true)
+        if (summonReturnCoroutine !=
+            null)
         {
-            cardRoot.anchoredPosition =
-                Vector2.Lerp(
-                    cardRoot.anchoredPosition,
-                    targetPosition,
-                    1f - Mathf.Exp(
-                        -moveSpeed *
-                        Time.unscaledDeltaTime
-                    )
+            StopCoroutine(
+                summonReturnCoroutine
+            );
+        }
+
+        summonReturnCoroutine =
+            StartCoroutine(
+                SummonReturnRoutine()
+            );
+    }
+
+    private IEnumerator SummonReturnRoutine()
+    {
+        Vector3 targetScale =
+            isSelected
+                ? originalScale *
+                  selectedScale
+                : originalScale;
+
+        Vector3 startScale =
+            targetScale *
+            summonReturnScale;
+
+        transform.localScale =
+            startScale;
+
+        float duration =
+            Mathf.Max(
+                0.01f,
+                summonReturnDuration
+            );
+
+        float timer =
+            0f;
+
+        while (timer <
+               duration)
+        {
+            timer +=
+                Time.unscaledDeltaTime;
+
+            float t =
+                Mathf.Clamp01(
+                    timer /
+                    duration
                 );
 
-            cardRoot.localScale =
+            float eased =
+                1f -
+                Mathf.Pow(
+                    1f - t,
+                    3f
+                );
+
+            transform.localScale =
                 Vector3.Lerp(
-                    cardRoot.localScale,
+                    startScale,
                     targetScale,
-                    1f - Mathf.Exp(
-                        -moveSpeed *
-                        Time.unscaledDeltaTime
-                    )
+                    eased
                 );
-
-            bool positionFinished =
-                Vector2.Distance(
-                    cardRoot.anchoredPosition,
-                    targetPosition
-                ) < 0.1f;
-
-            bool scaleFinished =
-                Vector3.Distance(
-                    cardRoot.localScale,
-                    targetScale
-                ) < 0.001f;
-
-            if (positionFinished &&
-                scaleFinished)
-            {
-                cardRoot.anchoredPosition =
-                    targetPosition;
-
-                cardRoot.localScale =
-                    targetScale;
-
-                break;
-            }
 
             yield return null;
         }
 
-        moveRoutine = null;
+        transform.localScale =
+            targetScale;
+
+        summonReturnCoroutine =
+            null;
     }
 
     // =========================================================
-    // Glow
+    // 즉시 초기화
     // =========================================================
 
-    private void UpdateGlow()
+    public void ResetVisualImmediate()
     {
-        if (!isSelected ||
-            !hasCard ||
-            glowImage == null)
-        {
-            return;
-        }
+        isSelected =
+            false;
 
-        float pulse =
-            Mathf.Sin(
-                Time.unscaledTime *
-                glowPulseSpeed *
-                Mathf.PI *
-                2f
+        if (summonReturnCoroutine !=
+            null)
+        {
+            StopCoroutine(
+                summonReturnCoroutine
             );
 
-        pulse =
-            (pulse + 1f) *
-            0.5f;
-
-        float alpha =
-            Mathf.Lerp(
-                glowMinAlpha,
-                glowMaxAlpha,
-                pulse
-            );
-
-        SetGlowAlpha(alpha);
-    }
-
-    private void SetGlowAlpha(float alpha)
-    {
-        if (glowImage == null)
-        {
-            return;
+            summonReturnCoroutine =
+                null;
         }
 
-        Color color =
-            glowImage.color;
+        if (rectTransform != null)
+        {
+            rectTransform.anchoredPosition =
+                originalAnchoredPosition;
+        }
 
-        color.a =
-            alpha;
-
-        glowImage.color =
-            color;
+        transform.localScale =
+            originalScale;
     }
 
 #if UNITY_EDITOR
+
     private void OnValidate()
     {
-        riseDistance =
+        selectedMoveY =
             Mathf.Max(
                 0f,
-                riseDistance
+                selectedMoveY
             );
 
         selectedScale =
             Mathf.Max(
-                1f,
+                0.1f,
                 selectedScale
             );
 
-        moveSpeed =
+        transitionSpeed =
             Mathf.Max(
                 0.1f,
-                moveSpeed
+                transitionSpeed
             );
 
-        glowMinAlpha =
-            Mathf.Clamp01(
-                glowMinAlpha
-            );
-
-        glowMaxAlpha =
-            Mathf.Clamp01(
-                glowMaxAlpha
-            );
-
-        if (glowMaxAlpha <
-            glowMinAlpha)
-        {
-            glowMaxAlpha =
-                glowMinAlpha;
-        }
-
-        glowPulseSpeed =
+        summonReturnScale =
             Mathf.Max(
                 0.1f,
-                glowPulseSpeed
+                summonReturnScale
+            );
+
+        summonReturnDuration =
+            Mathf.Max(
+                0.01f,
+                summonReturnDuration
             );
     }
+
 #endif
 }

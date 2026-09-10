@@ -1,5 +1,7 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class SummonManager : MonoBehaviour
@@ -9,108 +11,168 @@ public class SummonManager : MonoBehaviour
     [System.Serializable]
     public class SummonSlot
     {
-        [Header("소환수")]
-        public GameObject summonPrefab;
-
-        [Header("배치 프리뷰")]
-        public GameObject previewPrefab;
-
-        [Header("소환진")]
-        [Tooltip("소환할 때 바닥에 표시할 소환진 PNG")]
-        public Sprite summonCircleSprite;
-
-        [Header("비용")]
-        public float manaCost = 20f;
-        public int capacityCost = 1;
-
-        [Header("쿨타임")]
-        [Tooltip("이 소환수를 다시 사용할 수 있을 때까지의 시간")]
-        public float cooldown = 8f;
+        [Header("소환수 데이터")]
+        public SummonData summonData;
     }
 
-    [Header("소환 슬롯 1~8")]
+    [Header("전투 슬롯 1~8")]
     [SerializeField]
     private SummonSlot[] summonSlots =
         new SummonSlot[8];
 
-    [Header("슬롯 UI")]
+    [Header("슬롯 비주얼")]
     [SerializeField]
     private SummonSlotVisual[] slotVisuals =
         new SummonSlotVisual[8];
 
     [Header("쿨타임 UI")]
-    [Tooltip("각 슬롯의 CooldownFill Image를 1~8 순서대로 연결")]
     [SerializeField]
     private Image[] cooldownFills =
         new Image[8];
 
     [Header("마나")]
-    [SerializeField] private float maxMana = 100f;
-    [SerializeField] private float currentMana = 100f;
+    [SerializeField]
+    private float maxMana = 100f;
+
+    [SerializeField]
+    private float currentMana = 100f;
 
     [Header("소환 용량")]
-    [SerializeField] private int maxCapacity = 10;
-    [SerializeField] private int currentCapacity = 0;
+    [SerializeField]
+    private int maxCapacity = 10;
+
+    [SerializeField]
+    private int currentCapacity = 0;
 
     [Header("리벨")]
-    [SerializeField] private Transform ribel;
+    [SerializeField]
+    private Transform ribel;
 
-    [Header("소환 범위")]
-    [SerializeField] private GameObject summonRangeVisual;
-    [SerializeField] private SpriteRenderer summonRangeRenderer;
-    [SerializeField] private float fallbackSummonRange = 9f;
+    [Header("소환 가능 사거리")]
+    [SerializeField]
+    private GameObject summonRangeVisual;
+
+    [SerializeField]
+    private SpriteRenderer summonRangeRenderer;
+
+    [SerializeField]
+    private float fallbackSummonRange = 9f;
+
+    [Header("사거리 원 보이는 테두리 보정")]
+    [Tooltip(
+        "큰 소환 가능 사거리 이미지에서 실제로 보이는 원의 비율입니다."
+    )]
+    [Range(0.5f, 1f)]
+    [SerializeField]
+    private float summonRangeVisibleRadiusRatio = 1f;
 
     [Header("배치")]
-    [SerializeField] private Camera mainCamera;
-    [SerializeField] private LayerMask blockedLayers;
-    [SerializeField] private float placementCheckRadius = 0.35f;
-
-    [Header("프리뷰 색")]
     [SerializeField]
-    private Color validPreviewColor =
+    private Camera mainCamera;
+
+    [SerializeField]
+    private LayerMask blockedLayers;
+
+    [SerializeField]
+    private float placementCheckRadius = 0.35f;
+
+    [Header("배치 프리뷰 원")]
+    [SerializeField]
+    private Sprite placementPreviewCircleSprite;
+
+    [SerializeField]
+    private Color validPreviewCircleColor =
         new Color(
-            0.65f,
-            0.4f,
+            0.45f,
+            0.9f,
             1f,
-            0.65f
+            0.8f
         );
 
     [SerializeField]
-    private Color invalidPreviewColor =
+    private Color invalidPreviewCircleColor =
         new Color(
             1f,
             0.25f,
             0.25f,
-            0.65f
+            0.8f
         );
 
-    [Header("배치 취소 X")]
-    [SerializeField] private GameObject placementCancelButton;
+    [Header("프리뷰 원 보이는 테두리 보정")]
+    [Tooltip(
+        "프리뷰 원 PNG에서 실제로 보이는 원의 비율입니다."
+    )]
+    [Range(0.5f, 1f)]
+    [SerializeField]
+    private float previewCircleVisibleRadiusRatio = 0.85f;
+
+    [Header("프리뷰 소환수")]
+    [SerializeField]
+    private Color previewUnitColor =
+        new Color(
+            0.75f,
+            0.6f,
+            1f,
+            0.6f
+        );
+
+    [Header("프리뷰 렌더")]
+    [SerializeField]
+    private string previewSortingLayer =
+        "Effect";
+
+    [SerializeField]
+    private int previewCircleOrder = 35;
+
+    [SerializeField]
+    private int previewUnitOrder = 40;
+
+    [Header("배치 취소")]
+    [SerializeField]
+    private GameObject placementCancelButton;
 
     [Header("소환진 연출")]
-    [SerializeField] private float circleStartScale = 0.65f;
-    [SerializeField] private float circlePeakScale = 1.15f;
-    [SerializeField] private float circleEndScale = 1.30f;
+    [SerializeField]
+    private float circleStartScale = 0.65f;
 
-    [SerializeField] private float circleBurstTime = 0.07f;
-    [SerializeField] private float circleHoldTime = 0.05f;
-    [SerializeField] private float circleFadeTime = 0.22f;
+    [SerializeField]
+    private float circlePeakScale = 1.15f;
 
-    [Tooltip("소환진 Sorting Order")]
-    [SerializeField] private int circleSortingOrder = 50;
+    [SerializeField]
+    private float circleEndScale = 1.30f;
 
-    [Header("소환수 등장 연출")]
-    [SerializeField] private float summonAppearTime = 0.22f;
-    [SerializeField] private float summonStartScale = 0.82f;
-    [SerializeField] private float summonRiseDistance = 0.12f;
+    [SerializeField]
+    private float circleBurstTime = 0.07f;
+
+    [SerializeField]
+    private float circleHoldTime = 0.05f;
+
+    [SerializeField]
+    private float circleFadeTime = 0.22f;
+
+    [Header("소환진 렌더")]
+    [SerializeField]
+    private string summonCircleSortingLayer =
+        "Effect";
+
+    [SerializeField]
+    private int circleSortingOrder = 50;
+
+    // =========================================================
+    // Runtime
+    // =========================================================
 
     private int selectedSlotIndex = -1;
 
     private bool isPlacementMode;
 
-    private GameObject currentPreview;
+    private GameObject currentPreviewRoot;
 
-    private SpriteRenderer[] previewRenderers;
+    private SpriteRenderer previewCircleRenderer;
+
+    private readonly List<SpriteRenderer>
+        previewMemberRenderers =
+            new List<SpriteRenderer>();
 
     private Vector2 currentPlacementPosition;
 
@@ -118,16 +180,27 @@ public class SummonManager : MonoBehaviour
 
     private bool shouldBlockRibelMoveThisFrame;
 
-    // =========================================================
-    // 슬롯별 현재 남은 쿨타임
-    // =========================================================
-
     private float[] remainingCooldowns =
         new float[8];
+
+    private const float CooldownReadyThreshold =
+        0.05f;
+
+    // =========================================================
+    // 외부 확인용
+    // =========================================================
 
     public bool IsPlacementMode =>
         isPlacementMode;
 
+    /// <summary>
+    /// 배치 모드에서는 좌클릭을 전부 소환 조작이 사용한다.
+    /// 소환 가능한 위치인지 여부와 상관없이 리벨 이동에는 전달하지 않는다.
+    /// </summary>
+    public bool IsConsumingWorldClick =>
+        isPlacementMode;
+
+    // 기존 코드와의 호환을 위해 유지
     public bool ShouldBlockRibelMoveThisFrame =>
         shouldBlockRibelMoveThisFrame;
 
@@ -160,7 +233,8 @@ public class SummonManager : MonoBehaviour
 
         if (mainCamera == null)
         {
-            mainCamera = Camera.main;
+            mainCamera =
+                Camera.main;
         }
 
         FindRibel();
@@ -173,6 +247,13 @@ public class SummonManager : MonoBehaviour
                     .GetComponentInChildren<SpriteRenderer>(
                         true
                     );
+        }
+
+        if (remainingCooldowns == null ||
+            remainingCooldowns.Length != 8)
+        {
+            remainingCooldowns =
+                new float[8];
         }
 
         currentMana =
@@ -188,24 +269,10 @@ public class SummonManager : MonoBehaviour
                 0,
                 maxCapacity
             );
-
-        if (remainingCooldowns == null ||
-            remainingCooldowns.Length != 8)
-        {
-            remainingCooldowns =
-                new float[8];
-        }
     }
 
     private void Start()
     {
-        if (placementCancelButton != null)
-        {
-            placementCancelButton.SetActive(
-                false
-            );
-        }
-
         if (summonRangeVisual != null)
         {
             summonRangeVisual.SetActive(
@@ -213,9 +280,13 @@ public class SummonManager : MonoBehaviour
             );
         }
 
-        ClearSlotSelectionVisual();
+        if (placementCancelButton != null)
+        {
+            placementCancelButton.SetActive(
+                false
+            );
+        }
 
-        // 게임 시작 시 모든 쿨타임은 준비 완료 상태
         for (int i = 0;
              i < remainingCooldowns.Length;
              i++)
@@ -223,6 +294,10 @@ public class SummonManager : MonoBehaviour
             remainingCooldowns[i] =
                 0f;
         }
+
+        RefreshAllSlotVisuals();
+
+        ClearSlotSelectionVisual();
 
         UpdateCooldownUI();
     }
@@ -242,7 +317,69 @@ public class SummonManager : MonoBehaviour
         }
 
         UpdatePlacementPreview();
+
         HandlePlacementInput();
+    }
+
+    // =========================================================
+    // 슬롯 데이터
+    // =========================================================
+
+    private SummonData GetSlotData(
+        int index)
+    {
+        if (summonSlots == null ||
+            index < 0 ||
+            index >= summonSlots.Length)
+        {
+            return null;
+        }
+
+        if (summonSlots[index] == null)
+        {
+            return null;
+        }
+
+        return summonSlots[index].summonData;
+    }
+
+    // =========================================================
+    // 슬롯 비주얼
+    // =========================================================
+
+    private void RefreshAllSlotVisuals()
+    {
+        if (slotVisuals == null)
+        {
+            return;
+        }
+
+        for (int i = 0;
+             i < slotVisuals.Length;
+             i++)
+        {
+            RefreshSlotVisual(i);
+        }
+    }
+
+    private void RefreshSlotVisual(
+        int index)
+    {
+        if (slotVisuals == null ||
+            index < 0 ||
+            index >= slotVisuals.Length)
+        {
+            return;
+        }
+
+        if (slotVisuals[index] == null)
+        {
+            return;
+        }
+
+        slotVisuals[index].SetData(
+            GetSlotData(index)
+        );
     }
 
     // =========================================================
@@ -251,16 +388,12 @@ public class SummonManager : MonoBehaviour
 
     private void UpdateCooldowns()
     {
-        if (remainingCooldowns == null)
-        {
-            return;
-        }
-
         for (int i = 0;
              i < remainingCooldowns.Length;
              i++)
         {
-            if (remainingCooldowns[i] <= 0f)
+            if (remainingCooldowns[i] <=
+                CooldownReadyThreshold)
             {
                 remainingCooldowns[i] =
                     0f;
@@ -271,7 +404,8 @@ public class SummonManager : MonoBehaviour
             remainingCooldowns[i] -=
                 Time.deltaTime;
 
-            if (remainingCooldowns[i] < 0f)
+            if (remainingCooldowns[i] <=
+                CooldownReadyThreshold)
             {
                 remainingCooldowns[i] =
                     0f;
@@ -300,8 +434,10 @@ public class SummonManager : MonoBehaviour
                 continue;
             }
 
-            if (i >= summonSlots.Length ||
-                summonSlots[i] == null)
+            SummonData data =
+                GetSlotData(i);
+
+            if (data == null)
             {
                 fill.fillAmount =
                     0f;
@@ -309,99 +445,66 @@ public class SummonManager : MonoBehaviour
                 continue;
             }
 
-            float totalCooldown =
-                Mathf.Max(
-                    0.01f,
-                    summonSlots[i].cooldown
-                );
-
             float remaining =
-                0f;
+                remainingCooldowns[i];
 
-            if (i < remainingCooldowns.Length)
+            if (remaining <=
+                CooldownReadyThreshold)
             {
-                remaining =
-                    remainingCooldowns[i];
+                fill.fillAmount =
+                    0f;
+
+                continue;
             }
 
-            // 소환 직후 = 1
-            // 쿨타임 완료 = 0
+            float cooldown =
+                Mathf.Max(
+                    0.01f,
+                    data.Cooldown
+                );
+
             fill.fillAmount =
                 Mathf.Clamp01(
                     remaining /
-                    totalCooldown
+                    cooldown
                 );
         }
     }
 
     private bool IsSlotOnCooldown(
-        int slotIndex)
+        int index)
     {
-        if (slotIndex < 0 ||
-            slotIndex >=
-            remainingCooldowns.Length)
+        if (index < 0 ||
+            index >= remainingCooldowns.Length)
         {
             return false;
         }
 
-        return remainingCooldowns[slotIndex] >
-            0f;
+        return remainingCooldowns[index] >
+            CooldownReadyThreshold;
     }
 
     private void StartCooldown(
-        int slotIndex)
+        int index)
     {
-        if (slotIndex < 0 ||
-            slotIndex >=
-            remainingCooldowns.Length ||
-            slotIndex >=
-            summonSlots.Length)
+        SummonData data =
+            GetSlotData(index);
+
+        if (data == null ||
+            index < 0 ||
+            index >= remainingCooldowns.Length)
         {
             return;
         }
 
-        SummonSlot slot =
-            summonSlots[slotIndex];
-
-        if (slot == null)
-        {
-            return;
-        }
-
-        remainingCooldowns[slotIndex] =
-            Mathf.Max(
-                0f,
-                slot.cooldown
-            );
+        remainingCooldowns[index] =
+            data.Cooldown;
 
         UpdateCooldownUI();
     }
 
     // =========================================================
-    // 리벨
-    // =========================================================
-
-    private void FindRibel()
-    {
-        if (ribel != null)
-        {
-            return;
-        }
-
-        GameObject ribelObject =
-            GameObject.FindGameObjectWithTag(
-                "Player"
-            );
-
-        if (ribelObject != null)
-        {
-            ribel =
-                ribelObject.transform;
-        }
-    }
-
-    // =========================================================
-    // 숫자키
+    // 숫자키 1~8
     // =========================================================
 
     private void HandleSlotInput()
@@ -416,50 +519,44 @@ public class SummonManager : MonoBehaviour
                     i
                 );
 
-            if (!Input.GetKeyDown(key))
+            if (Input.GetKeyDown(key))
             {
-                continue;
+                SelectSlot(i);
+                return;
             }
-
-            SelectSlot(i);
-            break;
         }
     }
 
-    // =========================================================
-    // 슬롯 선택
-    // =========================================================
-
     private void SelectSlot(
-        int slotIndex)
+        int index)
     {
-        if (slotIndex < 0 ||
-            slotIndex >= summonSlots.Length)
+        SummonData data =
+            GetSlotData(index);
+
+        // 데이터 없는 슬롯은 조작 불가
+        if (data == null)
         {
             return;
         }
 
-        SummonSlot slot =
-            summonSlots[slotIndex];
+        // 실제 소환 프리팹 없는 데이터도 조작 불가
+        if (data.SummonPrefab == null)
+        {
+            Debug.LogWarning(
+                $"[SummonManager] 슬롯 {index + 1}의 " +
+                $"{data.SummonName} 데이터에 Summon Prefab이 없습니다."
+            );
 
-        if (slot == null ||
-            slot.summonPrefab == null)
+            return;
+        }
+
+        if (IsSlotOnCooldown(index))
         {
             return;
         }
 
-        // =====================================================
-        // 쿨타임 중에는 해당 슬롯 사용 불가
-        // =====================================================
-
-        if (IsSlotOnCooldown(
-                slotIndex))
-        {
-            return;
-        }
-
-        if (selectedSlotIndex ==
-            slotIndex)
+        // 같은 슬롯을 두 번째로 누르면 배치 모드
+        if (selectedSlotIndex == index)
         {
             if (!isPlacementMode)
             {
@@ -470,13 +567,12 @@ public class SummonManager : MonoBehaviour
         }
 
         selectedSlotIndex =
-            slotIndex;
+            index;
 
         UpdateSlotSelectionVisual();
 
         if (isPlacementMode)
         {
-            DestroyPreview();
             CreatePreview();
         }
     }
@@ -498,8 +594,7 @@ public class SummonManager : MonoBehaviour
             }
 
             slotVisuals[i].SetSelected(
-                i ==
-                selectedSlotIndex
+                i == selectedSlotIndex
             );
         }
     }
@@ -515,14 +610,12 @@ public class SummonManager : MonoBehaviour
              i < slotVisuals.Length;
              i++)
         {
-            if (slotVisuals[i] == null)
+            if (slotVisuals[i] != null)
             {
-                continue;
+                slotVisuals[i].SetSelected(
+                    false
+                );
             }
-
-            slotVisuals[i].SetSelected(
-                false
-            );
         }
     }
 
@@ -532,19 +625,26 @@ public class SummonManager : MonoBehaviour
 
     private void EnterPlacementMode()
     {
-        if (selectedSlotIndex < 0 ||
-            selectedSlotIndex >=
-            summonSlots.Length)
+        SummonData data =
+            GetSlotData(
+                selectedSlotIndex
+            );
+
+        if (data == null)
         {
             return;
         }
 
-        // 쿨타임 중이라면 배치 모드 진입 금지
-        if (IsSlotOnCooldown(
-                selectedSlotIndex))
+        if (data.SummonPrefab == null)
         {
             return;
         }
+
+        // =====================================================
+        // 중요:
+        // PreviewSprite가 없어도 배치/소환 가능.
+        // 프리뷰 그림만 안 보일 뿐이다.
+        // =====================================================
 
         isPlacementMode =
             true;
@@ -556,53 +656,175 @@ public class SummonManager : MonoBehaviour
             );
         }
 
-        CreatePreview();
-
         if (placementCancelButton != null)
         {
             placementCancelButton.SetActive(
                 true
             );
         }
+
+        CreatePreview();
+
+        // 들어간 직후 현재 마우스 위치도 계산
+        UpdatePlacementPreview();
     }
 
     // =========================================================
-    // 프리뷰
+    // 프리뷰 생성
     // =========================================================
 
     private void CreatePreview()
     {
         DestroyPreview();
 
-        if (selectedSlotIndex < 0 ||
-            selectedSlotIndex >=
-            summonSlots.Length)
-        {
-            return;
-        }
-
-        SummonSlot slot =
-            summonSlots[
+        SummonData data =
+            GetSlotData(
                 selectedSlotIndex
-            ];
-
-        if (slot == null ||
-            slot.previewPrefab == null)
-        {
-            return;
-        }
-
-        currentPreview =
-            Instantiate(
-                slot.previewPrefab,
-                Vector3.zero,
-                Quaternion.identity
             );
 
-        previewRenderers =
-            currentPreview
-                .GetComponentsInChildren<SpriteRenderer>();
+        if (data == null)
+        {
+            return;
+        }
+
+        currentPreviewRoot =
+            new GameObject(
+                "Runtime_SummonPreview"
+            );
+
+        previewMemberRenderers.Clear();
+
+        int count =
+            Mathf.Max(
+                1,
+                data.SpawnCount
+            );
+
+        // =====================================================
+        // PreviewSprite가 있을 때만 소환수 몸 프리뷰 생성
+        // 없어도 소환진 프리뷰와 실제 배치는 계속 작동
+        // =====================================================
+
+        if (data.PreviewSprite != null)
+        {
+            for (int i = 0;
+                 i < count;
+                 i++)
+            {
+                GameObject member =
+                    new GameObject(
+                        "PreviewMember_" +
+                        (i + 1)
+                    );
+
+                member.transform.SetParent(
+                    currentPreviewRoot.transform,
+                    false
+                );
+
+                member.transform.localPosition =
+                    GetGroupPreviewOffset(
+                        data.SummonBodySize,
+                        count,
+                        i
+                    );
+
+                SpriteRenderer renderer =
+                    member.AddComponent<SpriteRenderer>();
+
+                renderer.sprite =
+                    data.PreviewSprite;
+
+                renderer.color =
+                    previewUnitColor;
+
+                renderer.sortingLayerName =
+                    previewSortingLayer;
+
+                renderer.sortingOrder =
+                    previewUnitOrder;
+
+                previewMemberRenderers.Add(
+                    renderer
+                );
+            }
+        }
+
+        // 프리뷰 원은 별도로 생성
+        if (placementPreviewCircleSprite != null)
+        {
+            GameObject circle =
+                new GameObject(
+                    "PreviewCircle"
+                );
+
+            circle.transform.SetParent(
+                currentPreviewRoot.transform,
+                false
+            );
+
+            circle.transform.localPosition =
+                Vector3.zero;
+
+            circle.transform.localScale =
+                Vector3.one *
+                data.PreviewCircleScale;
+
+            previewCircleRenderer =
+                circle.AddComponent<SpriteRenderer>();
+
+            previewCircleRenderer.sprite =
+                placementPreviewCircleSprite;
+
+            previewCircleRenderer.color =
+                validPreviewCircleColor;
+
+            previewCircleRenderer.sortingLayerName =
+                previewSortingLayer;
+
+            previewCircleRenderer.sortingOrder =
+                previewCircleOrder;
+        }
     }
+
+    private Vector2 GetGroupPreviewOffset(
+        SummonBodySize bodySize,
+        int count,
+        int index)
+    {
+        if (count <= 1)
+        {
+            return Vector2.zero;
+        }
+
+        float radius =
+            GetSpawnSpreadRadius(
+                bodySize,
+                count
+            );
+
+        float angle =
+            (
+                360f /
+                count
+            ) *
+            index +
+            22.5f;
+
+        float rad =
+            angle *
+            Mathf.Deg2Rad;
+
+        return new Vector2(
+            Mathf.Cos(rad),
+            Mathf.Sin(rad)
+        ) *
+        radius;
+    }
+
+    // =========================================================
+    // 프리뷰 이동
+    // =========================================================
 
     private void UpdatePlacementPreview()
     {
@@ -610,29 +832,28 @@ public class SummonManager : MonoBehaviour
         {
             mainCamera =
                 Camera.main;
-
-            if (mainCamera == null)
-            {
-                return;
-            }
         }
 
         FindRibel();
 
-        if (ribel == null)
+        if (mainCamera == null ||
+            ribel == null)
         {
+            currentPlacementValid =
+                false;
+
             return;
         }
 
-        Vector3 mouseWorld3 =
+        Vector3 mouse =
             mainCamera.ScreenToWorldPoint(
                 Input.mousePosition
             );
 
         Vector2 mouseWorld =
             new Vector2(
-                mouseWorld3.x,
-                mouseWorld3.y
+                mouse.x,
+                mouse.y
             );
 
         currentPlacementPosition =
@@ -640,9 +861,10 @@ public class SummonManager : MonoBehaviour
                 mouseWorld
             );
 
-        if (currentPreview != null)
+        if (currentPreviewRoot != null)
         {
-            currentPreview.transform.position =
+            currentPreviewRoot
+                .transform.position =
                 currentPlacementPosition;
         }
 
@@ -651,8 +873,18 @@ public class SummonManager : MonoBehaviour
                 currentPlacementPosition
             );
 
-        UpdatePreviewColor();
+        if (previewCircleRenderer != null)
+        {
+            previewCircleRenderer.color =
+                currentPlacementValid
+                    ? validPreviewCircleColor
+                    : invalidPreviewCircleColor;
+        }
     }
+
+    // =========================================================
+    // 실제 소환 가능 사거리
+    // =========================================================
 
     private float GetActualSummonRange()
     {
@@ -661,73 +893,187 @@ public class SummonManager : MonoBehaviour
             Bounds bounds =
                 summonRangeRenderer.bounds;
 
-            return Mathf.Min(
-                bounds.extents.x,
-                bounds.extents.y
-            );
+            float spriteRadius =
+                Mathf.Min(
+                    bounds.extents.x,
+                    bounds.extents.y
+                );
+
+            return spriteRadius *
+                summonRangeVisibleRadiusRatio;
         }
 
         return fallbackSummonRange;
     }
 
-    private Vector2 ClampPositionInsideSummonRange(
-        Vector2 targetPosition)
+    // =========================================================
+    // 현재 프리뷰 원 반지름
+    // =========================================================
+
+    private float GetCurrentPreviewRadius()
     {
+        if (previewCircleRenderer != null &&
+            previewCircleRenderer.sprite != null)
+        {
+            Bounds bounds =
+                previewCircleRenderer.bounds;
+
+            float spriteRadius =
+                Mathf.Min(
+                    bounds.extents.x,
+                    bounds.extents.y
+                );
+
+            return spriteRadius *
+                previewCircleVisibleRadiusRatio;
+        }
+
+        if (currentPreviewRoot == null ||
+            previewMemberRenderers.Count == 0)
+        {
+            return 0f;
+        }
+
+        Vector2 center =
+            currentPreviewRoot.transform.position;
+
+        float maxRadius =
+            0f;
+
+        for (int i = 0;
+             i < previewMemberRenderers.Count;
+             i++)
+        {
+            SpriteRenderer renderer =
+                previewMemberRenderers[i];
+
+            if (renderer == null ||
+                renderer.sprite == null)
+            {
+                continue;
+            }
+
+            Bounds b =
+                renderer.bounds;
+
+            float horizontal =
+                Mathf.Max(
+                    Mathf.Abs(
+                        b.min.x -
+                        center.x
+                    ),
+                    Mathf.Abs(
+                        b.max.x -
+                        center.x
+                    )
+                );
+
+            float vertical =
+                Mathf.Max(
+                    Mathf.Abs(
+                        b.min.y -
+                        center.y
+                    ),
+                    Mathf.Abs(
+                        b.max.y -
+                        center.y
+                    )
+                );
+
+            float radius =
+                Mathf.Max(
+                    horizontal,
+                    vertical
+                );
+
+            if (radius > maxRadius)
+            {
+                maxRadius =
+                    radius;
+            }
+        }
+
+        return maxRadius;
+    }
+
+    // =========================================================
+    // 프리뷰가 사거리 안쪽에 완전히 들어오도록 제한
+    // =========================================================
+
+    private Vector2 ClampPositionInsideSummonRange(
+        Vector2 target)
+    {
+        if (ribel == null)
+        {
+            return target;
+        }
+
         Vector2 center =
             ribel.position;
 
-        Vector2 direction =
-            targetPosition -
+        Vector2 offset =
+            target -
             center;
 
-        float range =
+        float outerRadius =
             GetActualSummonRange();
 
-        Vector2 clampedOffset =
+        float previewRadius =
+            GetCurrentPreviewRadius();
+
+        float centerMaxDistance =
+            Mathf.Max(
+                0f,
+                outerRadius -
+                previewRadius
+            );
+
+        offset =
             Vector2.ClampMagnitude(
-                direction,
-                range
+                offset,
+                centerMaxDistance
             );
 
         return center +
-            clampedOffset;
+            offset;
     }
+
+    // =========================================================
+    // 배치 가능 여부
+    // =========================================================
 
     private bool CheckPlacementValid(
         Vector2 position)
     {
-        if (selectedSlotIndex < 0 ||
-            selectedSlotIndex >=
-            summonSlots.Length)
+        SummonData data =
+            GetSlotData(
+                selectedSlotIndex
+            );
+
+        if (data == null)
         {
             return false;
         }
 
-        // 쿨타임이면 배치 불가
+        if (data.SummonPrefab == null)
+        {
+            return false;
+        }
+
         if (IsSlotOnCooldown(
                 selectedSlotIndex))
         {
             return false;
         }
 
-        SummonSlot slot =
-            summonSlots[
-                selectedSlotIndex
-            ];
-
-        if (slot == null)
-        {
-            return false;
-        }
-
         if (currentMana <
-            slot.manaCost)
+            data.ManaCost)
         {
             return false;
         }
 
         if (currentCapacity +
-            slot.capacityCost >
+            data.CapacityCost >
             maxCapacity)
         {
             return false;
@@ -740,32 +1086,7 @@ public class SummonManager : MonoBehaviour
                 blockedLayers
             );
 
-        return blocked ==
-            null;
-    }
-
-    private void UpdatePreviewColor()
-    {
-        if (previewRenderers == null)
-        {
-            return;
-        }
-
-        Color color =
-            currentPlacementValid
-                ? validPreviewColor
-                : invalidPreviewColor;
-
-        for (int i = 0;
-             i < previewRenderers.Length;
-             i++)
-        {
-            if (previewRenderers[i] != null)
-            {
-                previewRenderers[i].color =
-                    color;
-            }
-        }
+        return blocked == null;
     }
 
     // =========================================================
@@ -774,27 +1095,42 @@ public class SummonManager : MonoBehaviour
 
     private void HandlePlacementInput()
     {
+        // 우클릭 = 배치 취소
         if (Input.GetMouseButtonDown(1))
         {
             shouldBlockRibelMoveThisFrame =
                 true;
 
             CancelPlacement();
+
             return;
         }
 
-        if (Input.GetMouseButtonDown(0))
+        if (!Input.GetMouseButtonDown(0))
         {
-            shouldBlockRibelMoveThisFrame =
-                true;
-
-            if (!currentPlacementValid)
-            {
-                return;
-            }
-
-            PlaceSummon();
+            return;
         }
+
+        // 배치 모드에서 발생한 좌클릭은
+        // 성공/실패 여부와 무관하게 리벨 이동에 사용하지 않는다.
+        shouldBlockRibelMoveThisFrame =
+            true;
+
+        // HUD 위를 클릭했다면 소환하지 않음
+        if (EventSystem.current != null &&
+            EventSystem.current.IsPointerOverGameObject())
+        {
+            return;
+        }
+
+        // 불가능한 위치면 아무 일도 하지 않음.
+        // 배치 모드는 그대로 유지.
+        if (!currentPlacementValid)
+        {
+            return;
+        }
+
+        PlaceSummon();
     }
 
     // =========================================================
@@ -803,29 +1139,30 @@ public class SummonManager : MonoBehaviour
 
     private void PlaceSummon()
     {
-        if (selectedSlotIndex < 0 ||
-            selectedSlotIndex >=
-            summonSlots.Length)
-        {
-            return;
-        }
-
-        int usedSlotIndex =
+        int slotIndex =
             selectedSlotIndex;
 
-        SummonSlot slot =
-            summonSlots[
-                usedSlotIndex
-            ];
+        SummonData data =
+            GetSlotData(
+                slotIndex
+            );
 
-        if (slot == null ||
-            slot.summonPrefab == null)
+        if (data == null)
         {
             return;
         }
 
-        if (IsSlotOnCooldown(
-                usedSlotIndex))
+        if (data.SummonPrefab == null)
+        {
+            Debug.LogWarning(
+                $"[SummonManager] {data.SummonName}의 " +
+                "Summon Prefab이 지정되지 않았습니다."
+            );
+
+            return;
+        }
+
+        if (IsSlotOnCooldown(slotIndex))
         {
             return;
         }
@@ -836,84 +1173,117 @@ public class SummonManager : MonoBehaviour
             return;
         }
 
-        // =====================================================
-        // 소환진
-        // =====================================================
+        int count =
+            Mathf.Max(
+                1,
+                data.SpawnCount
+            );
 
-        if (slot.summonCircleSprite != null)
+        SummonSpawnGroup group =
+            new SummonSpawnGroup(
+                data.SummonBodySize,
+                count,
+                data.CapacityCost
+            );
+
+        if (data.SummonCircleSprite != null)
         {
             CreateSummonCircle(
-                slot.summonCircleSprite,
+                data.SummonCircleSprite,
                 currentPlacementPosition
             );
         }
 
-        // =====================================================
-        // 소환수 생성
-        // =====================================================
+        int successfullyCreatedCount =
+            0;
 
-        GameObject summonObject =
-            Instantiate(
-                slot.summonPrefab,
-                currentPlacementPosition,
-                Quaternion.identity
-            );
-
-        // =====================================================
-        // 소환수 등장 연출
-        // =====================================================
-
-        StartCoroutine(
-            PlaySummonAppearance(
-                summonObject
-            )
-        );
-
-        SummonUnitBase summonUnit =
-            summonObject
-                .GetComponent<SummonUnitBase>();
-
-        if (summonUnit == null)
+        for (int i = 0;
+             i < count;
+             i++)
         {
-            summonUnit =
-                summonObject
-                    .GetComponentInChildren<SummonUnitBase>(
+            Vector2 spawnPosition =
+                currentPlacementPosition +
+                GetGroupPreviewOffset(
+                    data.SummonBodySize,
+                    count,
+                    i
+                );
+
+            spawnPosition =
+                ClampIndividualSpawnPosition(
+                    spawnPosition
+                );
+
+            GameObject obj =
+                Instantiate(
+                    data.SummonPrefab,
+                    spawnPosition,
+                    Quaternion.identity
+                );
+
+            if (obj == null)
+            {
+                continue;
+            }
+
+            SummonUnitBase unit =
+                obj.GetComponent<SummonUnitBase>();
+
+            if (unit == null)
+            {
+                unit =
+                    obj.GetComponentInChildren<SummonUnitBase>(
                         true
                     );
+            }
+
+            if (unit != null)
+            {
+                unit.InitializeSummon(
+                    group,
+                    data
+                );
+
+                unit.BeginSummonAppearance();
+
+                successfullyCreatedCount++;
+            }
+            else
+            {
+                Debug.LogWarning(
+                    $"[SummonManager] {data.SummonName} 프리팹에서 " +
+                    "SummonUnitBase를 찾지 못했습니다."
+                );
+            }
         }
 
-        if (summonUnit != null)
+        // 프리팹 자체 생성에 실패했다면
+        // 마나/용량/쿨타임을 소비하지 않는다.
+        if (successfullyCreatedCount <= 0)
         {
-            summonUnit
-                .BeginSummonAppearance();
-        }
+            Debug.LogWarning(
+                $"[SummonManager] {data.SummonName} 소환에 실패했습니다."
+            );
 
-        // =====================================================
-        // 리벨 소환 모션
-        // =====================================================
+            return;
+        }
 
         if (ribel != null)
         {
             RibelController controller =
-                ribel
-                    .GetComponent<RibelController>();
+                ribel.GetComponent<RibelController>();
 
             if (controller != null)
             {
-                controller
-                    .PlaySummonMotion();
+                controller.PlaySummonMotion();
             }
         }
 
-        // =====================================================
-        // 비용 처리
-        // =====================================================
-
         currentMana -=
-            slot.manaCost;
+            data.ManaCost;
 
         currentCapacity +=
-            slot.capacityCost;
+            data.CapacityCost;
 
         currentMana =
             Mathf.Clamp(
@@ -929,22 +1299,17 @@ public class SummonManager : MonoBehaviour
                 maxCapacity
             );
 
-        // =====================================================
-        // ★ 쿨타임 시작
-        // =====================================================
-
         StartCooldown(
-            usedSlotIndex
+            slotIndex
         );
 
         if (slotVisuals != null &&
-            usedSlotIndex <
-            slotVisuals.Length &&
-            slotVisuals[usedSlotIndex] !=
-            null)
+            slotIndex >= 0 &&
+            slotIndex < slotVisuals.Length &&
+            slotVisuals[slotIndex] != null)
         {
             slotVisuals[
-                usedSlotIndex
+                slotIndex
             ].PlaySummonReturn();
         }
 
@@ -955,66 +1320,128 @@ public class SummonManager : MonoBehaviour
     }
 
     // =========================================================
-    // 소환진 자동 생성
+    // 개별 소환체 사거리 제한
+    // =========================================================
+
+    private Vector2 ClampIndividualSpawnPosition(
+        Vector2 position)
+    {
+        if (ribel == null)
+        {
+            return position;
+        }
+
+        Vector2 center =
+            ribel.position;
+
+        Vector2 offset =
+            position -
+            center;
+
+        float range =
+            Mathf.Max(
+                0f,
+                GetActualSummonRange() -
+                placementCheckRadius
+            );
+
+        offset =
+            Vector2.ClampMagnitude(
+                offset,
+                range
+            );
+
+        return center +
+            offset;
+    }
+
+    // =========================================================
+    // 체급별 그룹 간격
+    // =========================================================
+
+    private float GetSpawnSpreadRadius(
+        SummonBodySize bodySize,
+        int count)
+    {
+        if (count <= 1)
+        {
+            return 0f;
+        }
+
+        switch (bodySize)
+        {
+            case SummonBodySize.Small:
+                return count >= 6
+                    ? 0.65f
+                    : 0.5f;
+
+            case SummonBodySize.Medium:
+                return count >= 3
+                    ? 0.75f
+                    : 0.55f;
+
+            case SummonBodySize.Large:
+                return 0.85f;
+
+            case SummonBodySize.Huge:
+                return 1f;
+        }
+
+        return 0.5f;
+    }
+
+    // =========================================================
+    // 실제 소환진
     // =========================================================
 
     private void CreateSummonCircle(
         Sprite sprite,
         Vector2 position)
     {
-        GameObject circleObject =
+        GameObject circle =
             new GameObject(
                 "SummonCircle"
             );
 
-        circleObject.transform.position =
+        circle.transform.position =
             position;
 
         SpriteRenderer renderer =
-            circleObject.AddComponent<SpriteRenderer>();
+            circle.AddComponent<SpriteRenderer>();
 
         renderer.sprite =
             sprite;
 
-        renderer.color =
-            Color.white;
+        renderer.sortingLayerName =
+            summonCircleSortingLayer;
 
         renderer.sortingOrder =
             circleSortingOrder;
 
         StartCoroutine(
             PlaySummonCircle(
-                circleObject,
+                circle,
                 renderer
             )
         );
     }
 
     private IEnumerator PlaySummonCircle(
-        GameObject circleObject,
+        GameObject circle,
         SpriteRenderer renderer)
     {
         Transform t =
-            circleObject.transform;
-
-        Vector3 baseScale =
-            Vector3.one;
-
-        t.localScale =
-            baseScale *
-            circleStartScale;
+            circle.transform;
 
         Color baseColor =
             renderer.color;
 
-        baseColor.a =
-            1f;
-
-        renderer.color =
-            baseColor;
-
         float timer =
             0f;
+
+        t.localScale =
+            Vector3.one *
+            circleStartScale;
 
         while (timer <
                circleBurstTime)
@@ -1025,32 +1452,25 @@ public class SummonManager : MonoBehaviour
             float p =
                 Mathf.Clamp01(
                     timer /
-                    circleBurstTime
-                );
-
-            float eased =
-                1f -
-                Mathf.Pow(
-                    1f - p,
-                    3f
-                );
-
-            float scale =
-                Mathf.Lerp(
-                    circleStartScale,
-                    circlePeakScale,
-                    eased
+                    Mathf.Max(
+                        0.01f,
+                        circleBurstTime
+                    )
                 );
 
             t.localScale =
-                baseScale *
-                scale;
+                Vector3.one *
+                Mathf.Lerp(
+                    circleStartScale,
+                    circlePeakScale,
+                    p
+                );
 
             yield return null;
         }
 
         t.localScale =
-            baseScale *
+            Vector3.one *
             circlePeakScale;
 
         if (circleHoldTime > 0f)
@@ -1073,206 +1493,37 @@ public class SummonManager : MonoBehaviour
             float p =
                 Mathf.Clamp01(
                     timer /
-                    circleFadeTime
+                    Mathf.Max(
+                        0.01f,
+                        circleFadeTime
+                    )
                 );
 
-            float scale =
+            t.localScale =
+                Vector3.one *
                 Mathf.Lerp(
                     circlePeakScale,
                     circleEndScale,
                     p
                 );
 
-            t.localScale =
-                baseScale *
-                scale;
-
-            Color color =
+            Color c =
                 baseColor;
 
-            color.a =
-                Mathf.Lerp(
-                    1f,
-                    0f,
-                    p
-                );
+            c.a =
+                1f - p;
 
             renderer.color =
-                color;
+                c;
 
             yield return null;
         }
 
-        Destroy(
-            circleObject
-        );
+        Destroy(circle);
     }
 
     // =========================================================
-    // 소환수 자동 등장 연출
-    // =========================================================
-
-    private IEnumerator PlaySummonAppearance(
-        GameObject summonObject)
-    {
-        if (summonObject == null)
-        {
-            yield break;
-        }
-
-        SpriteRenderer[] renderers =
-            summonObject
-                .GetComponentsInChildren<SpriteRenderer>(
-                    true
-                );
-
-        if (renderers == null ||
-            renderers.Length == 0)
-        {
-            yield break;
-        }
-
-        Color[] originalColors =
-            new Color[
-                renderers.Length
-            ];
-
-        for (int i = 0;
-             i < renderers.Length;
-             i++)
-        {
-            originalColors[i] =
-                renderers[i].color;
-
-            Color transparent =
-                originalColors[i];
-
-            transparent.a =
-                0f;
-
-            renderers[i].color =
-                transparent;
-        }
-
-        Transform summonTransform =
-            summonObject.transform;
-
-        Vector3 originalScale =
-            summonTransform.localScale;
-
-        Vector3 originalPosition =
-            summonTransform.position;
-
-        summonTransform.localScale =
-            originalScale *
-            summonStartScale;
-
-        summonTransform.position =
-            originalPosition +
-            Vector3.down *
-            summonRiseDistance;
-
-        float timer =
-            0f;
-
-        float duration =
-            Mathf.Max(
-                0.01f,
-                summonAppearTime
-            );
-
-        while (timer <
-               duration)
-        {
-            if (summonObject == null)
-            {
-                yield break;
-            }
-
-            timer +=
-                Time.deltaTime;
-
-            float p =
-                Mathf.Clamp01(
-                    timer /
-                    duration
-                );
-
-            float eased =
-                1f -
-                Mathf.Pow(
-                    1f - p,
-                    3f
-                );
-
-            summonTransform.localScale =
-                Vector3.Lerp(
-                    originalScale *
-                    summonStartScale,
-                    originalScale,
-                    eased
-                );
-
-            summonTransform.position =
-                Vector3.Lerp(
-                    originalPosition +
-                    Vector3.down *
-                    summonRiseDistance,
-                    originalPosition,
-                    eased
-                );
-
-            for (int i = 0;
-                 i < renderers.Length;
-                 i++)
-            {
-                if (renderers[i] == null)
-                {
-                    continue;
-                }
-
-                Color color =
-                    originalColors[i];
-
-                color.a =
-                    Mathf.Lerp(
-                        0f,
-                        originalColors[i].a,
-                        eased
-                    );
-
-                renderers[i].color =
-                    color;
-            }
-
-            yield return null;
-        }
-
-        if (summonObject == null)
-        {
-            yield break;
-        }
-
-        summonTransform.localScale =
-            originalScale;
-
-        summonTransform.position =
-            originalPosition;
-
-        for (int i = 0;
-             i < renderers.Length;
-             i++)
-        {
-            if (renderers[i] != null)
-            {
-                renderers[i].color =
-                    originalColors[i];
-            }
-        }
-    }
-
-    // =========================================================
-    // 취소
+    // 배치 취소
     // =========================================================
 
     public void CancelPlacement()
@@ -1308,70 +1559,144 @@ public class SummonManager : MonoBehaviour
                 false
             );
         }
+
+        ClearSlotSelectionVisual();
     }
 
     private void DestroyPreview()
     {
-        if (currentPreview != null)
+        if (currentPreviewRoot != null)
         {
             Destroy(
-                currentPreview
+                currentPreviewRoot
             );
-
-            currentPreview =
-                null;
         }
 
-        previewRenderers =
+        currentPreviewRoot =
             null;
+
+        previewCircleRenderer =
+            null;
+
+        previewMemberRenderers.Clear();
     }
 
     // =========================================================
-    // 마나
+    // 슬롯 데이터 교체
+    // =========================================================
+
+    public void SetSummonDataToSlot(
+        int slotIndex,
+        SummonData data)
+    {
+        if (summonSlots == null ||
+            slotIndex < 0 ||
+            slotIndex >= summonSlots.Length)
+        {
+            return;
+        }
+
+        if (summonSlots[slotIndex] == null)
+        {
+            summonSlots[slotIndex] =
+                new SummonSlot();
+        }
+
+        summonSlots[
+            slotIndex
+        ].summonData =
+            data;
+
+        if (slotIndex <
+            remainingCooldowns.Length)
+        {
+            remainingCooldowns[
+                slotIndex
+            ] =
+                0f;
+        }
+
+        // 현재 선택된 슬롯을 비웠다면 선택/배치도 정리
+        if (selectedSlotIndex ==
+            slotIndex &&
+            data == null)
+        {
+            selectedSlotIndex =
+                -1;
+
+            if (isPlacementMode)
+            {
+                ExitPlacementMode();
+            }
+        }
+
+        RefreshSlotVisual(
+            slotIndex
+        );
+
+        UpdateCooldownUI();
+    }
+
+    public SummonData GetSummonDataFromSlot(
+        int slotIndex)
+    {
+        return GetSlotData(
+            slotIndex
+        );
+    }
+
+    // =========================================================
+    // 마나 / 용량
     // =========================================================
 
     public void AddMana(
         float amount)
     {
-        if (amount <= 0f)
-        {
-            return;
-        }
-
-        currentMana +=
-            amount;
-
-        if (currentMana >
-            maxMana)
-        {
-            currentMana =
-                maxMana;
-        }
+        currentMana =
+            Mathf.Clamp(
+                currentMana +
+                amount,
+                0f,
+                maxMana
+            );
     }
-
-    // =========================================================
-    // 용량
-    // =========================================================
 
     public void ReleaseCapacity(
         int amount)
     {
-        if (amount <= 0)
+        currentCapacity =
+            Mathf.Max(
+                0,
+                currentCapacity -
+                amount
+            );
+    }
+
+    // =========================================================
+    // 리벨 찾기
+    // =========================================================
+
+    private void FindRibel()
+    {
+        if (ribel != null)
         {
             return;
         }
 
-        currentCapacity -=
-            amount;
+        GameObject obj =
+            GameObject.FindGameObjectWithTag(
+                "Player"
+            );
 
-        if (currentCapacity < 0)
+        if (obj != null)
         {
-            currentCapacity =
-                0;
+            ribel =
+                obj.transform;
         }
     }
 
 #if UNITY_EDITOR
+
     private void OnValidate()
     {
         maxMana =
@@ -1408,7 +1733,7 @@ public class SummonManager : MonoBehaviour
 
         placementCheckRadius =
             Mathf.Max(
-                0.05f,
+                0.01f,
                 placementCheckRadius
             );
 
@@ -1448,18 +1773,6 @@ public class SummonManager : MonoBehaviour
                 circleFadeTime
             );
 
-        summonAppearTime =
-            Mathf.Max(
-                0.01f,
-                summonAppearTime
-            );
-
-        summonRiseDistance =
-            Mathf.Max(
-                0f,
-                summonRiseDistance
-            );
-
         if (summonSlots == null ||
             summonSlots.Length != 8)
         {
@@ -1496,19 +1809,20 @@ public class SummonManager : MonoBehaviour
             );
         }
 
-        for (int i = 0;
-             i < summonSlots.Length;
-             i++)
+        if (string.IsNullOrWhiteSpace(
+                previewSortingLayer))
         {
-            if (summonSlots[i] != null)
-            {
-                summonSlots[i].cooldown =
-                    Mathf.Max(
-                        0f,
-                        summonSlots[i].cooldown
-                    );
-            }
+            previewSortingLayer =
+                "Effect";
+        }
+
+        if (string.IsNullOrWhiteSpace(
+                summonCircleSortingLayer))
+        {
+            summonCircleSortingLayer =
+                "Effect";
         }
     }
+
 #endif
 }
