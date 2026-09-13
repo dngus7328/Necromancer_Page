@@ -5,63 +5,107 @@ public class EnemyUnitBase : MonoBehaviour
 {
     public enum TargetType
     {
+        RibelOnly,
         Nearest,
         SummonOnly,
         HighestDefense,
         HighestMaxHealth,
         Farthest,
-        RibelOnly,
         Escape
     }
 
+    // =========================================================
+    // 기본 능력치
+    // =========================================================
+
     [Header("기본 능력치")]
-    [SerializeField] private float maxHealth = 50f;
+    [SerializeField]
+    private float maxHealth = 50f;
 
     [Header("처치 보상")]
-    [SerializeField] private float manaReward = 5f;
+    [SerializeField]
+    private float manaReward = 5f;
 
     [Header("이동")]
-    [SerializeField] private float moveSpeed = 3f;
+    [SerializeField]
+    private float moveSpeed = 3f;
+
+    // =========================================================
+    // 공격
+    // =========================================================
 
     [Header("공격")]
-    [SerializeField] private float attackDamage = 10f;
+    [SerializeField]
+    private float attackDamage = 10f;
 
-    [Tooltip("Collider 표면끼리 이 거리 안에 들어오면 공격 시작")]
-    [SerializeField] private float attackRange = 0.15f;
+    [Tooltip("Collider 표면 사이 거리가 이 값 이하이면 공격 시작")]
+    [SerializeField]
+    private float attackRange = 0.15f;
 
-    [Tooltip("공격을 시작한 뒤 이 거리까지는 움직이지 않고 계속 공격")]
-    [SerializeField] private float attackKeepRange = 0.35f;
+    [Tooltip("공격 시작 후 이 거리까지는 움직이지 않고 계속 공격")]
+    [SerializeField]
+    private float attackKeepRange = 0.35f;
 
-    [SerializeField] private float attackInterval = 1.2f;
+    [SerializeField]
+    private float attackInterval = 1.2f;
+
+    // =========================================================
+    // 타깃
+    // =========================================================
 
     [Header("타깃 설정")]
+
+    [Tooltip(
+        "기본 적은 RibelOnly를 사용합니다. " +
+        "다른 값은 특수 타깃 규칙을 가진 적에게만 사용합니다."
+    )]
     [SerializeField]
     private TargetType targetType =
-        TargetType.Nearest;
+        TargetType.RibelOnly;
 
-    [SerializeField] private LayerMask summonLayer;
+    [Tooltip("소환수 레이어")]
+    [SerializeField]
+    private LayerMask summonLayer;
 
-    [SerializeField] private float detectionRange = 7f;
-    [SerializeField] private float disengageRange = 10f;
-    [SerializeField] private float searchInterval = 0.2f;
+    [Tooltip("특수 적이 소환수를 탐색하는 거리")]
+    [SerializeField]
+    private float detectionRange = 7f;
+
+    [Tooltip("현재 타깃이 이 거리보다 멀어지면 타깃을 다시 판단")]
+    [SerializeField]
+    private float disengageRange = 10f;
+
+    [Tooltip("타깃 재검사 간격")]
+    [SerializeField]
+    private float searchInterval = 0.2f;
+
+    // =========================================================
+    // Runtime
+    // =========================================================
 
     private Rigidbody2D rb;
 
     private Transform ribel;
+
     private Transform currentTarget;
 
     private Collider2D bodyCollider;
 
     private float currentHealth;
+
     private float attackTimer;
+
     private float searchTimer;
 
     private bool isDead;
+
     private bool isAttackMode;
 
-    // 공격 중 위치를 잠갔다가
-    // 원래 Rigidbody 설정으로 정확히 되돌리기 위한 값
     private RigidbodyConstraints2D normalConstraints;
+
+    // =========================================================
+    // 외부 확인
+    // =========================================================
 
     public float CurrentHealth =>
         currentHealth;
@@ -94,8 +138,6 @@ public class EnemyUnitBase : MonoBehaviour
         rb =
             GetComponent<Rigidbody2D>();
 
-        // Inspector에 원래 설정돼 있던 Constraints 기억
-        // 예: Freeze Rotation Z
         normalConstraints =
             rb.constraints;
 
@@ -129,7 +171,8 @@ public class EnemyUnitBase : MonoBehaviour
     private void Start()
     {
         FindRibel();
-        SetRibelAsTarget();
+
+        SetInitialTarget();
     }
 
     private void Update()
@@ -140,6 +183,7 @@ public class EnemyUnitBase : MonoBehaviour
         }
 
         UpdateTimers();
+
         UpdateTarget();
     }
 
@@ -148,6 +192,7 @@ public class EnemyUnitBase : MonoBehaviour
         if (isDead)
         {
             StopMovement();
+
             return;
         }
 
@@ -177,10 +222,49 @@ public class EnemyUnitBase : MonoBehaviour
         }
     }
 
+    // =========================================================
+    // 초기 타깃
+    // =========================================================
+
+    private void SetInitialTarget()
+    {
+        if (targetType ==
+            TargetType.Escape)
+        {
+            currentTarget =
+                null;
+
+            return;
+        }
+
+        if (targetType ==
+            TargetType.RibelOnly)
+        {
+            SetRibelAsTarget();
+
+            return;
+        }
+
+        Transform preferred =
+            FindPreferredTarget();
+
+        if (preferred != null)
+        {
+            currentTarget =
+                preferred;
+        }
+        else
+        {
+            SetRibelAsTarget();
+        }
+    }
+
+    // =========================================================
+    // 리벨 타깃
+    // =========================================================
+
     private void SetRibelAsTarget()
     {
-        // 다른 공격 상태에서 빠져나오는 경우
-        // 위치 잠금도 반드시 해제
         ExitAttackMode();
 
         if (ribel == null)
@@ -193,7 +277,7 @@ public class EnemyUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // 공격 모드 시작 / 종료
+    // 공격 모드
     // =========================================================
 
     private void EnterAttackMode()
@@ -201,6 +285,7 @@ public class EnemyUnitBase : MonoBehaviour
         if (isAttackMode)
         {
             LockAttackPosition();
+
             return;
         }
 
@@ -214,9 +299,8 @@ public class EnemyUnitBase : MonoBehaviour
     {
         if (!isAttackMode)
         {
-            // 혹시 이전 상태가 꼬여 Constraints만 남아 있어도
-            // 원래 값으로 복구
             UnlockAttackPosition();
+
             return;
         }
 
@@ -227,7 +311,7 @@ public class EnemyUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // 공격 중 위치 완전 고정
+    // 공격 위치 고정
     // =========================================================
 
     private void LockAttackPosition()
@@ -285,7 +369,8 @@ public class EnemyUnitBase : MonoBehaviour
 
         if (currentHealth <= 0f)
         {
-            currentHealth = 0f;
+            currentHealth =
+                0f;
 
             Die();
         }
@@ -328,7 +413,7 @@ public class EnemyUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // 실제 Collider 표면 사이 거리
+    // Collider 표면 거리
     // =========================================================
 
     private float GetTargetDistance()
@@ -365,7 +450,6 @@ public class EnemyUnitBase : MonoBehaviour
             );
         }
 
-        // Collider를 못 찾은 경우만 중심 거리 사용
         return Vector2.Distance(
             rb.position,
             currentTarget.position
@@ -378,6 +462,10 @@ public class EnemyUnitBase : MonoBehaviour
 
     private void UpdateTarget()
     {
+        // -----------------------------------------------------
+        // 도주형
+        // -----------------------------------------------------
+
         if (targetType ==
             TargetType.Escape)
         {
@@ -400,47 +488,57 @@ public class EnemyUnitBase : MonoBehaviour
         searchTimer =
             searchInterval;
 
-        // 현재 타깃이 사라졌으면 리벨로 복귀
-        if (currentTarget == null ||
-            !currentTarget.gameObject.activeInHierarchy)
+        // -----------------------------------------------------
+        // 리벨이 없는 경우 다시 찾기
+        // -----------------------------------------------------
+
+        if (ribel == null)
         {
-            SetRibelAsTarget();
-            return;
+            FindRibel();
         }
 
-        // =====================================================
-        // 공격 중에는 타깃 절대 변경 안 함
-        // =====================================================
+        // -----------------------------------------------------
+        // 공격 중에는 타깃 변경 금지
+        // -----------------------------------------------------
 
         if (isAttackMode)
         {
+            if (currentTarget == null ||
+                !currentTarget.gameObject.activeInHierarchy)
+            {
+                ExitAttackMode();
+
+                SelectTargetAgain();
+
+                return;
+            }
+
             float centerDistance =
                 Vector2.Distance(
                     rb.position,
                     currentTarget.position
                 );
 
-            // 정말 멀리 도망간 경우에만
-            // 공격 모드 해제
             if (centerDistance >
                 disengageRange)
             {
                 ExitAttackMode();
-                SetRibelAsTarget();
+
+                SelectTargetAgain();
             }
 
             return;
         }
 
         // =====================================================
-        // 리벨만 공격하는 적
+        // 기본 적
+        // 리벨만 추적
         // =====================================================
 
         if (targetType ==
             TargetType.RibelOnly)
         {
-            if (currentTarget !=
-                ribel)
+            if (currentTarget != ribel)
             {
                 SetRibelAsTarget();
             }
@@ -449,19 +547,25 @@ public class EnemyUnitBase : MonoBehaviour
         }
 
         // =====================================================
-        // 이미 소환수를 타깃으로 잡고 있다면 유지
+        // 특수 적
         // =====================================================
 
-        SummonUnitBase currentSummon =
-            currentTarget
-                .GetComponent<SummonUnitBase>();
-
-        if (currentSummon == null)
+        if (currentTarget == null ||
+            !currentTarget.gameObject.activeInHierarchy)
         {
-            currentSummon =
-                currentTarget
-                    .GetComponentInChildren<SummonUnitBase>();
+            SelectTargetAgain();
+
+            return;
         }
+
+        SummonUnitBase currentSummon =
+            FindSummonComponent(
+                currentTarget
+            );
+
+        // -----------------------------------------------------
+        // 이미 소환수를 잡았다면 유지
+        // -----------------------------------------------------
 
         if (currentSummon != null)
         {
@@ -474,16 +578,16 @@ public class EnemyUnitBase : MonoBehaviour
             if (distance >
                 disengageRange)
             {
-                SetRibelAsTarget();
+                SelectTargetAgain();
             }
 
             return;
         }
 
-        // =====================================================
-        // 리벨을 쫓는 중이면
-        // 특성에 맞는 소환수 확인
-        // =====================================================
+        // -----------------------------------------------------
+        // 현재 리벨을 보고 있지만
+        // 특수 타깃 조건에 맞는 소환수가 있으면 교체
+        // -----------------------------------------------------
 
         if (currentTarget ==
             ribel)
@@ -491,8 +595,7 @@ public class EnemyUnitBase : MonoBehaviour
             Transform preferredTarget =
                 FindPreferredTarget();
 
-            if (preferredTarget != null &&
-                preferredTarget != ribel)
+            if (preferredTarget != null)
             {
                 currentTarget =
                     preferredTarget;
@@ -503,7 +606,79 @@ public class EnemyUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // 타깃 선택
+    // 타깃 재선택
+    // =========================================================
+
+    private void SelectTargetAgain()
+    {
+        if (targetType ==
+            TargetType.RibelOnly)
+        {
+            SetRibelAsTarget();
+
+            return;
+        }
+
+        Transform preferredTarget =
+            FindPreferredTarget();
+
+        if (preferredTarget != null)
+        {
+            currentTarget =
+                preferredTarget;
+
+            return;
+        }
+
+        // SummonOnly는 소환수가 없으면
+        // 리벨을 공격하지 않음
+        if (targetType ==
+            TargetType.SummonOnly)
+        {
+            currentTarget =
+                null;
+
+            return;
+        }
+
+        SetRibelAsTarget();
+    }
+
+    // =========================================================
+    // 현재 Transform이 소환수인지 확인
+    // =========================================================
+
+    private SummonUnitBase FindSummonComponent(
+        Transform targetTransform)
+    {
+        if (targetTransform == null)
+        {
+            return null;
+        }
+
+        SummonUnitBase summon =
+            targetTransform
+                .GetComponent<SummonUnitBase>();
+
+        if (summon == null)
+        {
+            summon =
+                targetTransform
+                    .GetComponentInChildren<SummonUnitBase>();
+        }
+
+        if (summon == null)
+        {
+            summon =
+                targetTransform
+                    .GetComponentInParent<SummonUnitBase>();
+        }
+
+        return summon;
+    }
+
+    // =========================================================
+    // 특수 타깃 선택
     // =========================================================
 
     private Transform FindPreferredTarget()
@@ -528,6 +703,10 @@ public class EnemyUnitBase : MonoBehaviour
 
         return null;
     }
+
+    // =========================================================
+    // 가장 가까운 소환수
+    // =========================================================
 
     private Transform FindNearestSummon()
     {
@@ -560,7 +739,8 @@ public class EnemyUnitBase : MonoBehaviour
 
             float distance =
                 Vector2.SqrMagnitude(
-                    (Vector2)summon.transform.position -
+                    (Vector2)summon
+                        .transform.position -
                     rb.position
                 );
 
@@ -577,6 +757,10 @@ public class EnemyUnitBase : MonoBehaviour
 
         return bestTarget;
     }
+
+    // =========================================================
+    // 방어력 가장 높은 소환수
+    // =========================================================
 
     private Transform FindHighestDefenseSummon()
     {
@@ -623,6 +807,10 @@ public class EnemyUnitBase : MonoBehaviour
             : null;
     }
 
+    // =========================================================
+    // 최대 HP 가장 높은 소환수
+    // =========================================================
+
     private Transform FindHighestMaxHealthSummon()
     {
         Collider2D[] summons =
@@ -668,6 +856,10 @@ public class EnemyUnitBase : MonoBehaviour
             : null;
     }
 
+    // =========================================================
+    // 가장 먼 소환수
+    // =========================================================
+
     private Transform FindFarthestSummon()
     {
         Collider2D[] summons =
@@ -699,7 +891,8 @@ public class EnemyUnitBase : MonoBehaviour
 
             float distance =
                 Vector2.SqrMagnitude(
-                    (Vector2)summon.transform.position -
+                    (Vector2)summon
+                        .transform.position -
                     rb.position
                 );
 
@@ -729,16 +922,18 @@ public class EnemyUnitBase : MonoBehaviour
             ExitAttackMode();
 
             StopMovement();
+
             return;
         }
 
         if (currentTarget == null)
         {
-            SetRibelAsTarget();
+            SelectTargetAgain();
 
             if (currentTarget == null)
             {
                 StopMovement();
+
                 return;
             }
         }
@@ -752,20 +947,16 @@ public class EnemyUnitBase : MonoBehaviour
 
         if (isAttackMode)
         {
-            // 공격 중에는 매 FixedUpdate마다
-            // 물리적으로 위치를 다시 잠금
             LockAttackPosition();
 
-            // Keep Range 안이면
-            // 절대로 MovePosition 호출하지 않음
             if (distance <=
                 attackKeepRange)
             {
                 TryAttack();
+
                 return;
             }
 
-            // 상대가 확실히 멀어졌음
             ExitAttackMode();
         }
 
@@ -779,11 +970,12 @@ public class EnemyUnitBase : MonoBehaviour
             EnterAttackMode();
 
             TryAttack();
+
             return;
         }
 
         // =====================================================
-        // 사거리 밖일 때만 이동
+        // 타깃 쪽으로 이동
         // =====================================================
 
         UnlockAttackPosition();
@@ -814,19 +1006,12 @@ public class EnemyUnitBase : MonoBehaviour
             return;
         }
 
-        // 공격 중에는 반드시 고정
         LockAttackPosition();
 
         SummonUnitBase summon =
-            currentTarget
-                .GetComponent<SummonUnitBase>();
-
-        if (summon == null)
-        {
-            summon =
+            FindSummonComponent(
                 currentTarget
-                    .GetComponentInChildren<SummonUnitBase>();
-        }
+            );
 
         if (summon != null)
         {
@@ -900,6 +1085,7 @@ public class EnemyUnitBase : MonoBehaviour
     }
 
 #if UNITY_EDITOR
+
     private void OnValidate()
     {
         maxHealth =
@@ -962,5 +1148,6 @@ public class EnemyUnitBase : MonoBehaviour
                 searchInterval
             );
     }
+
 #endif
 }

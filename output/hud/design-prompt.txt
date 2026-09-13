@@ -1,0 +1,4 @@
+Tool: built-in imagegen
+Deliverable: bottom HUD screenshot design mockup; not an installed Unity Canvas.
+
+undefined

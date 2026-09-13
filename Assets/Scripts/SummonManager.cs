@@ -460,7 +460,9 @@ public class SummonManager : MonoBehaviour
             float cooldown =
                 Mathf.Max(
                     0.01f,
-                    data.Cooldown
+                    AugmentRuntimeEffects.GetCooldown(
+                        data.Cooldown
+                    )
                 );
 
             fill.fillAmount =
@@ -498,7 +500,9 @@ public class SummonManager : MonoBehaviour
         }
 
         remainingCooldowns[index] =
-            data.Cooldown;
+            AugmentRuntimeEffects.GetCooldown(
+                data.Cooldown
+            );
 
         UpdateCooldownUI();
     }
@@ -1066,8 +1070,13 @@ public class SummonManager : MonoBehaviour
             return false;
         }
 
+        float actualManaCost =
+            AugmentRuntimeEffects.GetManaCost(
+                data.ManaCost
+            );
+
         if (currentMana <
-            data.ManaCost)
+            actualManaCost)
         {
             return false;
         }
@@ -1280,7 +1289,9 @@ public class SummonManager : MonoBehaviour
         }
 
         currentMana -=
-            data.ManaCost;
+            AugmentRuntimeEffects.GetManaCost(
+                data.ManaCost
+            );
 
         currentCapacity +=
             data.CapacityCost;
@@ -1635,6 +1646,44 @@ public class SummonManager : MonoBehaviour
         );
 
         UpdateCooldownUI();
+    }
+
+    public float GetActualManaCost(
+        int slotIndex)
+    {
+        SummonData data =
+            GetSlotData(slotIndex);
+
+        if (data == null)
+        {
+            return 0f;
+        }
+
+        return AugmentRuntimeEffects.GetManaCost(
+            data.ManaCost
+        );
+    }
+
+    public float GetActualCooldown(
+        int slotIndex)
+    {
+        SummonData data =
+            GetSlotData(slotIndex);
+
+        if (data == null)
+        {
+            return 0f;
+        }
+
+        return AugmentRuntimeEffects.GetCooldown(
+            data.Cooldown
+        );
+    }
+
+    public void RefreshAugmentAffectedUI()
+    {
+        UpdateCooldownUI();
+        RefreshAllSlotVisuals();
     }
 
     public SummonData GetSummonDataFromSlot(

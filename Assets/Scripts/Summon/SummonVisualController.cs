@@ -52,10 +52,28 @@ public class SummonVisualController : MonoBehaviour
     private DirectionMode directionMode =
         DirectionMode.ThreeDirections;
 
-    [Tooltip("3방향 전환이 너무 자주 튀는 것을 줄여주는 값")]
+    [Tooltip("3방향에서 방향 전환이 너무 민감하지 않게 하는 값")]
     [Range(0f, 0.5f)]
     [SerializeField]
     private float directionSwitchMargin = 0.15f;
+
+    [Header("5방향 각도 판정")]
+
+    [Tooltip(
+        "이 각도 이상이면 위 방향으로 판정합니다.\n" +
+        "값을 낮추면 Up이 더 쉽게 나옵니다."
+    )]
+    [Range(30f, 89f)]
+    [SerializeField]
+    private float upDirectionAngle = 67.5f;
+
+    [Tooltip(
+        "이 각도 이상이면 위 대각선으로 판정합니다.\n" +
+        "값을 낮추면 대각선 방향이 더 쉽게 나옵니다."
+    )]
+    [Range(0f, 45f)]
+    [SerializeField]
+    private float diagonalDirectionAngle = 22.5f;
 
     // =========================================================
     // Idle
@@ -121,7 +139,7 @@ public class SummonVisualController : MonoBehaviour
     [SerializeField]
     private float attackFrameRate = 10f;
 
-    [Tooltip("실제로 공격 판정이 발생하는 프레임")]
+    [Tooltip("실제 공격 판정이 발생하는 프레임")]
     [Min(0)]
     [SerializeField]
     private int attackHitFrame = 2;
@@ -130,10 +148,20 @@ public class SummonVisualController : MonoBehaviour
     // Hit
     // =========================================================
 
-    [Header("HIT - 공통")]
-    [Tooltip("피격은 현재 방향 공통 프레임을 사용")]
+    [Header("HIT")]
+    [Tooltip(
+        "3방향: Down → Right → Up\n" +
+        "5방향: Down → DownRight → Right → UpRight → Up\n" +
+        "피격 순간 화면에 실제로 보이던 방향을 고정한 뒤 1회만 재생합니다.\n" +
+        "방향당 1장이라면 Hit Columns = 1로 두세요."
+    )]
     [SerializeField]
     private Sprite[] hitFrames;
+
+    [Tooltip("방향 하나당 피격 프레임 수")]
+    [Min(1)]
+    [SerializeField]
+    private int hitColumns = 1;
 
     [Min(0.1f)]
     [SerializeField]
@@ -221,26 +249,25 @@ public class SummonVisualController : MonoBehaviour
     private FacingType lockedActionFacing =
         FacingType.Down;
 
+    // 실제 화면에 마지막으로 그려진 방향.
+    // 피격 시 currentFacing이 아니라 이 값을 사용해야
+    // "맞기 직전 보고 있던 방향"을 정확히 유지할 수 있습니다.
+    private FacingType displayedFacing =
+        FacingType.Down;
+
     private bool isMoving;
-
     private bool actionLocked;
-
     private bool isDead;
-
     private bool deathFinished;
-
     private bool isDeathSequenceRunning;
-
     private bool isSummonAppearing;
 
     private float animationTimer;
-
     private int currentFrame;
 
     private bool attackDamageTriggered;
 
     private Action attackHitCallback;
-
     private Action actionFinishedCallback;
 
     // =========================================================
@@ -401,13 +428,11 @@ public class SummonVisualController : MonoBehaviour
             return;
         }
 
-        // 공중 / 부유형 본체 높이
         spriteRenderer.transform.localPosition =
             originalSpriteLocalPosition +
             Vector3.up *
             summonData.HoverHeight;
 
-        // Flying만 그림자 생성
         if (movementType !=
             SummonMovementType.Flying)
         {
@@ -549,7 +574,6 @@ public class SummonVisualController : MonoBehaviour
                 1f
             );
 
-        // 위로 올라갈수록 그림자 작아짐
         float scaleMultiplier =
             1f -
             normalizedHeight *
@@ -560,7 +584,6 @@ public class SummonVisualController : MonoBehaviour
             summonData.ShadowBaseScale *
             scaleMultiplier;
 
-        // 위로 올라갈수록 그림자 흐려짐
         float alpha =
             summonData.ShadowBaseAlpha -
             normalizedHeight *
@@ -902,16 +925,6 @@ public class SummonVisualController : MonoBehaviour
 
     // =========================================================
     // 5방향
-    //
-    // 실제로는 좌측 flip까지 합쳐 8방향처럼 보임.
-    //
-    // 위
-    // 우상
-    // 오른쪽
-    // 우하
-    // 아래
-    //
-    // 왼쪽 계열은 flipX
     // =========================================================
 
     private FacingType DetermineFiveDirection(
@@ -940,14 +953,16 @@ public class SummonVisualController : MonoBehaviour
             ) *
             Mathf.Rad2Deg;
 
-        // 거의 위
-        if (angle >= 67.5f)
+        // 위
+        if (angle >=
+            upDirectionAngle)
         {
             return FacingType.Up;
         }
 
         // 위 대각선
-        if (angle >= 22.5f)
+        if (angle >=
+            diagonalDirectionAngle)
         {
             return left
                 ? FacingType.UpLeft
@@ -955,7 +970,8 @@ public class SummonVisualController : MonoBehaviour
         }
 
         // 좌 / 우
-        if (angle > -22.5f)
+        if (angle >
+            -diagonalDirectionAngle)
         {
             return left
                 ? FacingType.Left
@@ -963,14 +979,15 @@ public class SummonVisualController : MonoBehaviour
         }
 
         // 아래 대각선
-        if (angle > -67.5f)
+        if (angle >
+            -upDirectionAngle)
         {
             return left
                 ? FacingType.DownLeft
                 : FacingType.DownRight;
         }
 
-        // 거의 아래
+        // 아래
         return FacingType.Down;
     }
 
@@ -987,7 +1004,6 @@ public class SummonVisualController : MonoBehaviour
             return;
         }
 
-        // 지상형만 Walk
         if (movementType ==
             SummonMovementType.Ground)
         {
@@ -999,8 +1015,6 @@ public class SummonVisualController : MonoBehaviour
         }
         else
         {
-            // Flying / Floating은
-            // 이동해도 기본 비행/부유 Idle 사용
             ChangeMotion(
                 MotionType.Idle
             );
@@ -1354,7 +1368,7 @@ public class SummonVisualController : MonoBehaviour
         }
 
         lockedActionFacing =
-            currentFacing;
+            displayedFacing;
 
         actionLocked =
             true;
@@ -1818,7 +1832,7 @@ public class SummonVisualController : MonoBehaviour
                 case MotionType.Hit:
                     {
                         if (currentFrame >=
-                            hitFrames.Length)
+                            hitColumns)
                         {
                             FinishHitMotion();
 
@@ -1911,6 +1925,9 @@ public class SummonVisualController : MonoBehaviour
     {
         actionLocked =
             false;
+
+        currentFacing =
+            lockedActionFacing;
 
         if (movementType ==
             SummonMovementType.Ground &&
@@ -2049,7 +2066,7 @@ public class SummonVisualController : MonoBehaviour
     }
 
     // =========================================================
-    // 현재 프레임 세트
+    // 현재 프레임
     // =========================================================
 
     private Sprite[] GetCurrentFrames()
@@ -2108,12 +2125,7 @@ public class SummonVisualController : MonoBehaviour
                 return deathColumns;
 
             case MotionType.Hit:
-                return Mathf.Max(
-                    1,
-                    hitFrames != null
-                        ? hitFrames.Length
-                        : 1
-                );
+                return hitColumns;
 
             default:
                 return idleColumns;
@@ -2165,23 +2177,6 @@ public class SummonVisualController : MonoBehaviour
             return;
         }
 
-        // 피격은 공통 프레임
-        if (currentMotion ==
-            MotionType.Hit)
-        {
-            int hitIndex =
-                Mathf.Clamp(
-                    currentFrame,
-                    0,
-                    frames.Length - 1
-                );
-
-            spriteRenderer.sprite =
-                frames[hitIndex];
-
-            return;
-        }
-
         if (columns <= 0)
         {
             return;
@@ -2220,6 +2215,9 @@ public class SummonVisualController : MonoBehaviour
 
         spriteRenderer.sprite =
             frames[index];
+
+        displayedFacing =
+            facing;
     }
 
     // =========================================================
@@ -2249,16 +2247,6 @@ public class SummonVisualController : MonoBehaviour
                     return 0;
             }
         }
-
-        // -----------------------------------------------------
-        // FiveDirections
-        //
-        // 0 = Down
-        // 1 = DownRight
-        // 2 = Right
-        // 3 = UpRight
-        // 4 = Up
-        // -----------------------------------------------------
 
         switch (facing)
         {
@@ -2352,10 +2340,6 @@ public class SummonVisualController : MonoBehaviour
         UpdateCurrentSprite();
     }
 
-    // =========================================================
-    // Inspector 안전 처리
-    // =========================================================
-
 #if UNITY_EDITOR
 
     private void OnValidate()
@@ -2365,6 +2349,20 @@ public class SummonVisualController : MonoBehaviour
                 directionSwitchMargin,
                 0f,
                 0.5f
+            );
+
+        diagonalDirectionAngle =
+            Mathf.Clamp(
+                diagonalDirectionAngle,
+                0f,
+                45f
+            );
+
+        upDirectionAngle =
+            Mathf.Clamp(
+                upDirectionAngle,
+                diagonalDirectionAngle + 1f,
+                89f
             );
 
         idleColumns =
@@ -2383,6 +2381,12 @@ public class SummonVisualController : MonoBehaviour
             Mathf.Max(
                 1,
                 attackColumns
+            );
+
+        hitColumns =
+            Mathf.Max(
+                1,
+                hitColumns
             );
 
         deathColumns =

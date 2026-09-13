@@ -95,6 +95,11 @@ public class SummonUnitBase : MonoBehaviour
 
     private float currentHealth;
 
+    // 강화계약 적용 전 원본 능력치
+    private float baseMaxHealth;
+
+    private float baseAttackDamage;
+
     private float searchTimer;
 
     private float attackTimer;
@@ -207,12 +212,59 @@ public class SummonUnitBase : MonoBehaviour
             }
         }
 
+        baseMaxHealth =
+            maxHealth;
+
+        baseAttackDamage =
+            attackDamage;
+
+        maxHealth =
+            AugmentRuntimeEffects.GetSummonMaxHealth(
+                baseMaxHealth
+            );
+
+        attackDamage =
+            AugmentRuntimeEffects.GetSummonDamage(
+                baseAttackDamage
+            );
+
         currentHealth =
             maxHealth;
 
         CacheColliders();
 
         CreateFollowOffset();
+    }
+
+    public void RefreshAugmentStats()
+    {
+        float previousMaxHealth =
+            Mathf.Max(1f, maxHealth);
+
+        float healthRatio =
+            currentHealth > 0f
+                ? Mathf.Clamp01(currentHealth / previousMaxHealth)
+                : 0f;
+
+        maxHealth =
+            AugmentRuntimeEffects.GetSummonMaxHealth(
+                baseMaxHealth
+            );
+
+        attackDamage =
+            AugmentRuntimeEffects.GetSummonDamage(
+                baseAttackDamage
+            );
+
+        if (!isDead && currentHealth > 0f)
+        {
+            currentHealth =
+                Mathf.Clamp(
+                    maxHealth * healthRatio,
+                    1f,
+                    maxHealth
+                );
+        }
     }
 
     protected virtual void Start()
@@ -557,6 +609,8 @@ public class SummonUnitBase : MonoBehaviour
 
         StopMovement();
 
+        HideHealthBarsImmediately();
+
         SetCollidersEnabled(
             false
         );
@@ -583,6 +637,30 @@ public class SummonUnitBase : MonoBehaviour
         else
         {
             DestroyAfterDeath();
+        }
+    }
+
+    private void HideHealthBarsImmediately()
+    {
+        SummonHealthBar[] healthBars =
+            GetComponentsInChildren<SummonHealthBar>(
+                true
+            );
+
+        for (int i = 0;
+             i < healthBars.Length;
+             i++)
+        {
+            if (healthBars[i] == null)
+            {
+                continue;
+            }
+
+            healthBars[i]
+                .gameObject
+                .SetActive(
+                    false
+                );
         }
     }
 

@@ -32,8 +32,8 @@ MonoBehaviour:
   shadowBaseScale: 1
   shadowBaseAlpha: 0.35
   shadowScaleVariation: 0.12
-  shadowAlphaVariation: 0.1
-  attackMotionType: 0
+  shadowAlphaVariation: 0.4
+  attackMotionType: 2
   attackBackstepDistance: 0.2
   attackForwardDistance: 0.4
   attackBackstepTime: 0.12

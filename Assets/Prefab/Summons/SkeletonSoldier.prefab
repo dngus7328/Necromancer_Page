@@ -315,6 +315,7 @@ GameObject:
   - component: {fileID: 5261162402348338659}
   - component: {fileID: -480249179204151298}
   - component: {fileID: 6793878170536237371}
+  - component: {fileID: 8356487822327813147}
   m_Layer: 7
   m_Name: SkeletonSoldier
   m_TagString: Untagged
@@ -511,7 +512,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spriteRenderer: {fileID: 2352362202426780813}
+  directionMode: 0
   directionSwitchMargin: 0.12
+  upDirectionAngle: 67.5
+  diagonalDirectionAngle: 22.5
   idleFrames:
   - {fileID: 1129072443, guid: fc75c1363e3e44144b87e0e597f5f1b6, type: 3}
   - {fileID: 2089325353, guid: fc75c1363e3e44144b87e0e597f5f1b6, type: 3}
@@ -532,7 +536,7 @@ MonoBehaviour:
   - {fileID: -2074523643, guid: fc75c1363e3e44144b87e0e597f5f1b6, type: 3}
   - {fileID: 122920783, guid: fc75c1363e3e44144b87e0e597f5f1b6, type: 3}
   idleColumns: 6
-  idleFrameRate: 8
+  idleFrameRate: 4
   walkFrames:
   - {fileID: 225055389, guid: f9f185426316a5444b5060b756e4d4a3, type: 3}
   - {fileID: -1414942813, guid: f9f185426316a5444b5060b756e4d4a3, type: 3}
@@ -583,7 +587,6 @@ MonoBehaviour:
   - {fileID: -1259186653, guid: d1c3e47bbb1874d4eb1f8a33d76faedd, type: 3}
   - {fileID: 272453411, guid: d1c3e47bbb1874d4eb1f8a33d76faedd, type: 3}
   - {fileID: -2056831067, guid: d1c3e47bbb1874d4eb1f8a33d76faedd, type: 3}
-  hitColumns: 2
   hitFrameRate: 10
   deathFrames:
   - {fileID: -1598065954, guid: db1d692efa4113245ae31b581f284659, type: 3}
@@ -613,6 +616,25 @@ MonoBehaviour:
   summonAppearDuration: 0.22
   summonStartScale: 0.82
   summonRiseDistance: 0.12
+--- !u!114 &8356487822327813147
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5407501456505759879}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 059fde02c4910ab4dbab29394f20b3c7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  startScale: 0.5
+  peakScale: 1.2
+  popTime: 0.3
+  returnTime: 0.1
+  flashTime: 0.1
+  flashStrength: 0.8
+  visualRoot: {fileID: 4662088976894222388}
 --- !u!1 &8624143773802246499
 GameObject:
   m_ObjectHideFlags: 0

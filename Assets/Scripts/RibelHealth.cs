@@ -3,49 +3,111 @@ using UnityEngine;
 
 public class RibelHealth : MonoBehaviour
 {
+    // =========================================================
+    // 체력
+    // =========================================================
+
     [Header("체력")]
-    [SerializeField] private float maxHealth = 100f;
+    [SerializeField]
+    private float maxHealth = 100f;
+
+    // =========================================================
+    // 저체력 화면 효과
+    // =========================================================
+
+    [Header("저체력 화면 효과")]
+    [Tooltip(
+        "Canvas의 LowHealthOverlay에 붙어있는 " +
+        "LowHealthScreenEffect를 연결합니다. " +
+        "비워두면 자동으로 찾습니다."
+    )]
+    [SerializeField]
+    private LowHealthScreenEffect lowHealthScreenEffect;
+
+    // =========================================================
+    // 피격 연출
+    // =========================================================
 
     [Header("피격 연출")]
+
     [Tooltip("피격 직후 아주 짧게 뜸을 들이는 시간")]
-    [SerializeField] private float hitPauseTime = 0.08f;
+    [SerializeField]
+    private float hitPauseTime = 0.08f;
 
     [Tooltip("붉은 색으로 유지되는 시간")]
-    [SerializeField] private float redFlashTime = 0.12f;
+    [SerializeField]
+    private float redFlashTime = 0.12f;
 
     [Tooltip("피격 후 전체 무적 시간")]
-    [SerializeField] private float invincibleTime = 0.8f;
+    [SerializeField]
+    private float invincibleTime = 0.8f;
+
+    // =========================================================
+    // 피격 색상
+    // =========================================================
 
     [Header("피격 색상")]
     [SerializeField]
     private Color hitColor =
-        new Color(1f, 0.2f, 0.2f, 1f);
+        new Color(
+            1f,
+            0.2f,
+            0.2f,
+            1f
+        );
+
+    // =========================================================
+    // 무적 표시
+    // =========================================================
 
     [Header("무적 표시")]
+
     [Tooltip("무적 중 깜빡이는 간격")]
-    [SerializeField] private float blinkInterval = 0.08f;
+    [SerializeField]
+    private float blinkInterval = 0.08f;
 
     [Tooltip("깜빡일 때 투명도")]
     [Range(0f, 1f)]
-    [SerializeField] private float blinkAlpha = 0.35f;
+    [SerializeField]
+    private float blinkAlpha = 0.35f;
+
+    // =========================================================
+    // Runtime
+    // =========================================================
 
     private float currentHealth;
 
     private bool isInvincible;
+
     private bool isDead;
 
     private SpriteRenderer spriteRenderer;
+
     private RibelController ribelController;
 
     private Color originalColor;
 
-    public float CurrentHealth => currentHealth;
-    public float MaxHealth => maxHealth;
-    public bool IsInvincible => isInvincible;
+    // =========================================================
+    // 외부 확인
+    // =========================================================
+
+    public float CurrentHealth =>
+        currentHealth;
+
+    public float MaxHealth =>
+        maxHealth;
+
+    public bool IsInvincible =>
+        isInvincible;
+
+    // =========================================================
+    // 초기화
+    // =========================================================
 
     private void Awake()
     {
-        currentHealth = maxHealth;
+        currentHealth =
+            maxHealth;
 
         spriteRenderer =
             GetComponent<SpriteRenderer>();
@@ -58,13 +120,21 @@ public class RibelHealth : MonoBehaviour
             originalColor =
                 spriteRenderer.color;
         }
+
+        FindLowHealthScreenEffect();
+    }
+
+    private void Start()
+    {
+        RefreshLowHealthEffect();
     }
 
     // =========================================================
     // 피해
     // =========================================================
 
-    public void TakeDamage(float damage)
+    public void TakeDamage(
+        float damage)
     {
         if (damage <= 0f)
         {
@@ -81,20 +151,28 @@ public class RibelHealth : MonoBehaviour
             return;
         }
 
-        currentHealth -= damage;
+        currentHealth -=
+            damage;
 
         if (currentHealth < 0f)
         {
-            currentHealth = 0f;
+            currentHealth =
+                0f;
         }
 
+        // 체력이 줄어든 즉시
+        // 화면 위험 효과 갱신
+        RefreshLowHealthEffect();
+
         Debug.Log(
-            $"리벨 피해 {damage} | HP {currentHealth}/{maxHealth}"
+            $"리벨 피해 {damage} | " +
+            $"HP {currentHealth}/{maxHealth}"
         );
 
         if (currentHealth <= 0f)
         {
             Die();
+
             return;
         }
 
@@ -109,31 +187,34 @@ public class RibelHealth : MonoBehaviour
 
     private IEnumerator HitRoutine()
     {
-        isInvincible = true;
+        isInvincible =
+            true;
 
-        // -----------------------------------------
+        // -----------------------------------------------------
         // 1. 피격 모션
-        // -----------------------------------------
+        // -----------------------------------------------------
 
         if (ribelController != null)
         {
-            ribelController.PlayHitMotion();
+            ribelController
+                .PlayHitMotion();
         }
 
-        // -----------------------------------------
-        // 2. 잠깐 뜸
-        // -----------------------------------------
+        // -----------------------------------------------------
+        // 2. 짧은 피격 텀
+        // -----------------------------------------------------
 
         if (hitPauseTime > 0f)
         {
-            yield return new WaitForSeconds(
-                hitPauseTime
-            );
+            yield return
+                new WaitForSeconds(
+                    hitPauseTime
+                );
         }
 
-        // -----------------------------------------
-        // 3. 붉게 표시
-        // -----------------------------------------
+        // -----------------------------------------------------
+        // 3. 붉은 색 표시
+        // -----------------------------------------------------
 
         if (spriteRenderer != null)
         {
@@ -143,42 +224,46 @@ public class RibelHealth : MonoBehaviour
 
         if (redFlashTime > 0f)
         {
-            yield return new WaitForSeconds(
-                redFlashTime
-            );
+            yield return
+                new WaitForSeconds(
+                    redFlashTime
+                );
         }
 
-        // -----------------------------------------
+        // -----------------------------------------------------
         // 4. 원래 색 복귀
-        // -----------------------------------------
+        // -----------------------------------------------------
 
         RestoreOriginalColor();
 
-        // -----------------------------------------
+        // -----------------------------------------------------
         // 5. 남은 무적 시간 동안 깜빡임
-        // -----------------------------------------
+        // -----------------------------------------------------
 
         float remainingInvincibleTime =
             invincibleTime -
             hitPauseTime -
             redFlashTime;
 
-        if (remainingInvincibleTime > 0f)
+        if (remainingInvincibleTime >
+            0f)
         {
-            yield return StartCoroutine(
-                BlinkRoutine(
-                    remainingInvincibleTime
-                )
-            );
+            yield return
+                StartCoroutine(
+                    BlinkRoutine(
+                        remainingInvincibleTime
+                    )
+                );
         }
 
-        // -----------------------------------------
+        // -----------------------------------------------------
         // 6. 무적 종료
-        // -----------------------------------------
+        // -----------------------------------------------------
 
         RestoreOriginalColor();
 
-        isInvincible = false;
+        isInvincible =
+            false;
     }
 
     // =========================================================
@@ -190,18 +275,22 @@ public class RibelHealth : MonoBehaviour
     {
         if (spriteRenderer == null)
         {
-            yield return new WaitForSeconds(
-                duration
-            );
+            yield return
+                new WaitForSeconds(
+                    duration
+                );
 
             yield break;
         }
 
-        float elapsed = 0f;
+        float elapsed =
+            0f;
 
-        bool transparent = false;
+        bool transparent =
+            false;
 
-        while (elapsed < duration)
+        while (elapsed <
+               duration)
         {
             transparent =
                 !transparent;
@@ -220,7 +309,8 @@ public class RibelHealth : MonoBehaviour
             float waitTime =
                 Mathf.Min(
                     blinkInterval,
-                    duration - elapsed
+                    duration -
+                    elapsed
                 );
 
             if (waitTime <= 0f)
@@ -228,11 +318,13 @@ public class RibelHealth : MonoBehaviour
                 break;
             }
 
-            yield return new WaitForSeconds(
-                waitTime
-            );
+            yield return
+                new WaitForSeconds(
+                    waitTime
+                );
 
-            elapsed += waitTime;
+            elapsed +=
+                waitTime;
         }
     }
 
@@ -253,7 +345,8 @@ public class RibelHealth : MonoBehaviour
     // 회복
     // =========================================================
 
-    public void Heal(float amount)
+    public void Heal(
+        float amount)
     {
         if (amount <= 0f ||
             isDead)
@@ -261,12 +354,18 @@ public class RibelHealth : MonoBehaviour
             return;
         }
 
-        currentHealth += amount;
+        currentHealth +=
+            amount;
 
-        if (currentHealth > maxHealth)
+        if (currentHealth >
+            maxHealth)
         {
-            currentHealth = maxHealth;
+            currentHealth =
+                maxHealth;
         }
+
+        // 회복 즉시 화면 위험 효과도 감소
+        RefreshLowHealthEffect();
     }
 
     // =========================================================
@@ -280,10 +379,17 @@ public class RibelHealth : MonoBehaviour
             return;
         }
 
-        isDead = true;
-        isInvincible = true;
+        isDead =
+            true;
 
-        currentHealth = 0f;
+        isInvincible =
+            true;
+
+        currentHealth =
+            0f;
+
+        // HP 0 상태를 화면 효과에 전달
+        RefreshLowHealthEffect();
 
         StopAllCoroutines();
 
@@ -291,15 +397,59 @@ public class RibelHealth : MonoBehaviour
 
         if (ribelController != null)
         {
-            ribelController.PlayDeathMotion();
+            ribelController
+                .PlayDeathMotion();
         }
 
-        Debug.Log("리벨 사망");
+        Debug.Log(
+            "리벨 사망"
+        );
 
-        // 게임오버는 나중에 연결
+        // 게임오버는 추후 연결
+    }
+
+    // =========================================================
+    // 저체력 효과 찾기
+    // =========================================================
+
+    private void FindLowHealthScreenEffect()
+    {
+        if (lowHealthScreenEffect != null)
+        {
+            return;
+        }
+
+        lowHealthScreenEffect =
+            FindObjectOfType
+                <LowHealthScreenEffect>(
+                    true
+                );
+    }
+
+    // =========================================================
+    // 저체력 화면 효과 갱신
+    // =========================================================
+
+    private void RefreshLowHealthEffect()
+    {
+        if (lowHealthScreenEffect == null)
+        {
+            FindLowHealthScreenEffect();
+        }
+
+        if (lowHealthScreenEffect == null)
+        {
+            return;
+        }
+
+        lowHealthScreenEffect.SetHealth(
+            currentHealth,
+            maxHealth
+        );
     }
 
 #if UNITY_EDITOR
+
     private void OnValidate()
     {
         maxHealth =
@@ -337,5 +487,6 @@ public class RibelHealth : MonoBehaviour
                 blinkAlpha
             );
     }
+
 #endif
 }
