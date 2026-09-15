@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class ManaPotionController : MonoBehaviour
 {
@@ -22,14 +23,21 @@ public class ManaPotionController : MonoBehaviour
     private KeyCode useKey = KeyCode.E;
 
     // =========================================================
-    // 쿨타임 숫자 UI
+    // 쿨타임 UI
     // =========================================================
 
-    [Header("쿨타임 숫자 UI")]
+    [Header("쿨타임 UI")]
 
     [Tooltip("남은 쿨타임 숫자를 표시할 TMP 텍스트")]
     [SerializeField]
     private TMP_Text cooldownText;
+
+    [Tooltip(
+        "포션 위를 덮는 쿨타임 이미지. " +
+        "Image Type을 Filled / Radial 360으로 설정합니다."
+    )]
+    [SerializeField]
+    private Image cooldownFill;
 
     // =========================================================
     // Runtime
@@ -59,7 +67,7 @@ public class ManaPotionController : MonoBehaviour
 
     private void Start()
     {
-        RefreshCooldownText();
+        RefreshCooldownUI();
     }
 
     private void Update()
@@ -68,7 +76,7 @@ public class ManaPotionController : MonoBehaviour
 
         HandleInput();
 
-        RefreshCooldownText();
+        RefreshCooldownUI();
     }
 
     // =========================================================
@@ -77,7 +85,9 @@ public class ManaPotionController : MonoBehaviour
 
     private void HandleInput()
     {
-        if (!Input.GetKeyDown(useKey))
+        if (!Input.GetKeyDown(
+                useKey
+            ))
         {
             return;
         }
@@ -108,7 +118,7 @@ public class ManaPotionController : MonoBehaviour
         remainingCooldown =
             cooldown;
 
-        RefreshCooldownText();
+        RefreshCooldownUI();
 
         Debug.Log(
             $"마나 포션 사용 | +{restoreAmount} Mana"
@@ -142,7 +152,44 @@ public class ManaPotionController : MonoBehaviour
     }
 
     // =========================================================
-    // 쿨타임 숫자 표시
+    // UI 전체 갱신
+    // =========================================================
+
+    private void RefreshCooldownUI()
+    {
+        RefreshCooldownFill();
+        RefreshCooldownText();
+    }
+
+    // =========================================================
+    // 쿨타임 Fill
+    // =========================================================
+
+    private void RefreshCooldownFill()
+    {
+        if (cooldownFill == null)
+        {
+            return;
+        }
+
+        if (IsReady ||
+            cooldown <= 0f)
+        {
+            cooldownFill.fillAmount =
+                0f;
+
+            return;
+        }
+
+        cooldownFill.fillAmount =
+            Mathf.Clamp01(
+                remainingCooldown /
+                cooldown
+            );
+    }
+
+    // =========================================================
+    // 쿨타임 숫자
     // =========================================================
 
     private void RefreshCooldownText()
@@ -161,16 +208,12 @@ public class ManaPotionController : MonoBehaviour
             return;
         }
 
-        // -----------------------------------------------------
         // 1초 초과
-        // 정수로 표시
+        // 정수 올림으로 표시
         //
-        // 예:
         // 17.6 → 18
         // 5.2  → 6
         // 1.1  → 2
-        // -----------------------------------------------------
-
         if (remainingCooldown > 1f)
         {
             int seconds =
@@ -184,18 +227,12 @@ public class ManaPotionController : MonoBehaviour
             return;
         }
 
-        // -----------------------------------------------------
         // 1초 이하
-        // 소수점 한 자리로 표시
+        // 소수점 한 자리 표시
         //
         // 0.94 → 0.9
         // 0.52 → 0.5
         // 0.14 → 0.1
-        //
-        // 0.0은 표시하지 않고
-        // 쿨타임 종료와 동시에 사라짐
-        // -----------------------------------------------------
-
         float displayedTime =
             Mathf.Ceil(
                 remainingCooldown *

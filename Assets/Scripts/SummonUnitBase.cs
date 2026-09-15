@@ -1,20 +1,32 @@
-using UnityEngine;
+Ôªøusing UnityEngine;
 
 [RequireComponent(typeof(Rigidbody2D))]
 public class SummonUnitBase : MonoBehaviour
 {
-    [Header("∏Æ∫ß")]
+    // =========================================================
+    // Î¶¨Î≤®
+    // =========================================================
+
+    [Header("Î¶¨Î≤®")]
     [SerializeField]
     protected Transform ribel;
 
-    [Header("±‚∫ª ¥…∑¬ƒ°")]
+    // =========================================================
+    // Í∏∞Î≥∏ Îä•Î†•Ïπò
+    // =========================================================
+
+    [Header("Í∏∞Î≥∏ Îä•Î†•Ïπò")]
     [SerializeField]
     protected float maxHealth = 60f;
 
     [SerializeField]
     protected float defense = 0f;
 
-    [Header("¿Ãµø")]
+    // =========================================================
+    // Ïù¥Îèô
+    // =========================================================
+
+    [Header("Ïù¥Îèô")]
     [SerializeField]
     protected float moveSpeed = 3.8f;
 
@@ -24,14 +36,22 @@ public class SummonUnitBase : MonoBehaviour
     [SerializeField]
     protected float followStartDistance = 0.9f;
 
-    [Header("∏Æ∫ß ¡÷∫Ø ∫–ªÍ")]
+    // =========================================================
+    // Î¶¨Î≤® Ï£ºÎ≥Ä Î∂ÑÏÇ∞
+    // =========================================================
+
+    [Header("Î¶¨Î≤® Ï£ºÎ≥Ä Î∂ÑÏÇ∞")]
     [SerializeField]
     protected float followRadius = 1.6f;
 
     [SerializeField]
     protected float followRadiusRandom = 0.35f;
 
-    [Header("¿˚ ≈Ωªˆ")]
+    // =========================================================
+    // Ï†Å ÌÉêÏÉâ
+    // =========================================================
+
+    [Header("Ï†Å ÌÉêÏÉâ")]
     [SerializeField]
     protected LayerMask enemyLayer;
 
@@ -41,14 +61,22 @@ public class SummonUnitBase : MonoBehaviour
     [SerializeField]
     protected float searchInterval = 0.2f;
 
-    [Header("∞¯∞› ∞≈∏Æ")]
+    // =========================================================
+    // Í≥µÍ≤© Í±∞Î¶¨
+    // =========================================================
+
+    [Header("Í≥µÍ≤© Í±∞Î¶¨")]
     [SerializeField]
     protected float attackRange = 0.22f;
 
     [SerializeField]
     protected float attackKeepRange = 0.38f;
 
-    [Header("∞¯∞›")]
+    // =========================================================
+    // Í≥µÍ≤©
+    // =========================================================
+
+    [Header("Í≥µÍ≤©")]
     [SerializeField]
     protected float attackDamage = 20f;
 
@@ -61,15 +89,35 @@ public class SummonUnitBase : MonoBehaviour
     [SerializeField]
     protected float attackHitRangeMultiplier = 1.15f;
 
-    [Header("∞¯∞› æ»¿¸¿Âƒ°")]
+    // =========================================================
+    // Í≥µÍ≤© Ïù¥ÌéôÌä∏
+    // =========================================================
+
+    [Header("Í≥µÍ≤© Ïù¥ÌéôÌä∏")]
+    [SerializeField]
+    protected AttackEffectEmitter attackEffectEmitter;
+
+    // =========================================================
+    // Í≥µÍ≤© ÏïàÏ†ÑÏû•Ïπò
+    // =========================================================
+
+    [Header("Í≥µÍ≤© ÏïàÏ†ÑÏû•Ïπò")]
     [SerializeField]
     protected float maxAttackLockTime = 1.5f;
 
-    [Header("º“»Ø ∫∏»£")]
+    // =========================================================
+    // ÏÜåÌôò Î≥¥Ìò∏
+    // =========================================================
+
+    [Header("ÏÜåÌôò Î≥¥Ìò∏")]
     [SerializeField]
     protected float postSummonInvincibleTime = 0.5f;
 
-    [Header("∫Ò¡÷æÛ")]
+    // =========================================================
+    // ÎπÑÏ£ºÏñº
+    // =========================================================
+
+    [Header("ÎπÑÏ£ºÏñº")]
     [SerializeField]
     protected SummonVisualController visualController;
 
@@ -91,14 +139,26 @@ public class SummonUnitBase : MonoBehaviour
 
     protected Vector2 rallyPoint;
 
+    protected Vector2 attackDirection =
+        Vector2.right;
+
     private Collider2D bodyCollider;
+
+    private SpriteRenderer bodySpriteRenderer;
 
     private float currentHealth;
 
-    // ∞≠»≠∞Ëæ‡ ¿˚øÎ ¿¸ ø¯∫ª ¥…∑¬ƒ°
     private float baseMaxHealth;
 
     private float baseAttackDamage;
+
+    // =========================================================
+    // Î≥¥Ìò∏Îßâ Runtime
+    // =========================================================
+
+    private float currentShield;
+
+    private float shieldTimer;
 
     private float searchTimer;
 
@@ -139,6 +199,27 @@ public class SummonUnitBase : MonoBehaviour
     public float MaxHealth =>
         maxHealth;
 
+    public float CurrentShield =>
+        currentShield;
+
+    public float ShieldRatio =>
+        maxHealth > 0f
+            ? Mathf.Clamp01(
+                currentShield /
+                maxHealth
+            )
+            : 0f;
+
+    public bool HasShield =>
+        currentShield > 0f &&
+        shieldTimer > 0f;
+
+    public float ShieldTimeRemaining =>
+        Mathf.Max(
+            0f,
+            shieldTimer
+        );
+
     public float Defense =>
         defense;
 
@@ -159,6 +240,26 @@ public class SummonUnitBase : MonoBehaviour
 
     public SummonBodySize SummonBodySize =>
         summonBodySize;
+
+    // =========================================================
+    // ÏÜåÌôòÏàò Ïù¥Î¶Ñ
+    // =========================================================
+
+    public string SummonName
+    {
+        get
+        {
+            if (summonData != null &&
+                !string.IsNullOrWhiteSpace(
+                    summonData.SummonName
+                ))
+            {
+                return summonData.SummonName;
+            }
+
+            return gameObject.name;
+        }
+    }
 
     public int GroupAliveMembers =>
         summonGroup != null
@@ -189,13 +290,22 @@ public class SummonUnitBase : MonoBehaviour
                 GetComponentInChildren<SummonVisualController>();
         }
 
+        if (attackEffectEmitter == null)
+        {
+            attackEffectEmitter =
+                GetComponentInChildren<AttackEffectEmitter>();
+        }
+
         bodyCollider =
             GetComponent<Collider2D>();
 
-        if (bodyCollider == null)
+        if (bodyCollider == null ||
+            bodyCollider.isTrigger)
         {
             Collider2D[] colliders =
                 GetComponentsInChildren<Collider2D>();
+
+            bodyCollider = null;
 
             for (int i = 0;
                  i < colliders.Length;
@@ -210,6 +320,19 @@ public class SummonUnitBase : MonoBehaviour
                     break;
                 }
             }
+        }
+
+        if (visualController != null)
+        {
+            bodySpriteRenderer =
+                visualController
+                    .GetComponentInChildren<SpriteRenderer>();
+        }
+
+        if (bodySpriteRenderer == null)
+        {
+            bodySpriteRenderer =
+                GetComponentInChildren<SpriteRenderer>();
         }
 
         baseMaxHealth =
@@ -231,40 +354,15 @@ public class SummonUnitBase : MonoBehaviour
         currentHealth =
             maxHealth;
 
+        currentShield =
+            0f;
+
+        shieldTimer =
+            0f;
+
         CacheColliders();
 
         CreateFollowOffset();
-    }
-
-    public void RefreshAugmentStats()
-    {
-        float previousMaxHealth =
-            Mathf.Max(1f, maxHealth);
-
-        float healthRatio =
-            currentHealth > 0f
-                ? Mathf.Clamp01(currentHealth / previousMaxHealth)
-                : 0f;
-
-        maxHealth =
-            AugmentRuntimeEffects.GetSummonMaxHealth(
-                baseMaxHealth
-            );
-
-        attackDamage =
-            AugmentRuntimeEffects.GetSummonDamage(
-                baseAttackDamage
-            );
-
-        if (!isDead && currentHealth > 0f)
-        {
-            currentHealth =
-                Mathf.Clamp(
-                    maxHealth * healthRatio,
-                    1f,
-                    maxHealth
-                );
-        }
     }
 
     protected virtual void Start()
@@ -280,6 +378,8 @@ public class SummonUnitBase : MonoBehaviour
         }
 
         UpdateSummonProtection();
+
+        UpdateShield();
 
         if (isSummoning)
         {
@@ -306,8 +406,110 @@ public class SummonUnitBase : MonoBehaviour
         UpdateMovement();
     }
 
+    protected virtual void LateUpdate()
+    {
+        UpdateYSorting();
+    }
+
     // =========================================================
-    // °⁄ Manager∞° º“»Ø ¡˜»ƒ »£√‚
+    // Collider Î∞îÎã• Í∏∞Ï§Ä ÏïûÎí§ Ï†ïÎ†¨
+    // =========================================================
+
+    private void UpdateYSorting()
+    {
+        if (bodySpriteRenderer == null ||
+            bodyCollider == null ||
+            !bodyCollider.enabled)
+        {
+            return;
+        }
+
+        float bottomY =
+            bodyCollider.bounds.min.y;
+
+        bodySpriteRenderer.sortingOrder =
+            Mathf.Clamp(
+                Mathf.RoundToInt(
+                    -bottomY * 100f
+                ),
+                -32000,
+                32000
+            );
+    }
+
+    // =========================================================
+    // Í∞ïÌôî Îä•Î†•Ïπò Í∞±Ïã†
+    // =========================================================
+
+    public void RefreshAugmentStats()
+    {
+        if (isDead)
+        {
+            return;
+        }
+
+        float previousMaxHealth =
+            Mathf.Max(
+                1f,
+                maxHealth
+            );
+
+        float previousAttackDamage =
+            attackDamage;
+
+        float healthRatio =
+            currentHealth > 0f
+                ? Mathf.Clamp01(
+                    currentHealth /
+                    previousMaxHealth
+                )
+                : 0f;
+
+        maxHealth =
+            AugmentRuntimeEffects.GetSummonMaxHealth(
+                baseMaxHealth
+            );
+
+        attackDamage =
+            AugmentRuntimeEffects.GetSummonDamage(
+                baseAttackDamage
+            );
+
+        if (currentHealth > 0f)
+        {
+            currentHealth =
+                Mathf.Clamp(
+                    maxHealth *
+                    healthRatio,
+                    0f,
+                    maxHealth
+                );
+        }
+
+        currentShield =
+            Mathf.Clamp(
+                currentShield,
+                0f,
+                maxHealth
+            );
+
+        bool statIncreased =
+            maxHealth >
+            previousMaxHealth +
+            0.001f ||
+            attackDamage >
+            previousAttackDamage +
+            0.001f;
+
+        if (statIncreased &&
+            visualController != null)
+        {
+            visualController.PlayStatUpEffect();
+        }
+    }
+
+    // =========================================================
+    // Manager Ï¥àÍ∏∞Ìôî
     // =========================================================
 
     public void InitializeSummon(
@@ -334,7 +536,6 @@ public class SummonUnitBase : MonoBehaviour
         }
     }
 
-    // ¿Ã¿¸ »£√‚ »£»Ø
     public void InitializeSummonGroup(
         SummonSpawnGroup group,
         SummonBodySize bodySize)
@@ -347,7 +548,7 @@ public class SummonUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // º“»Ø µÓ¿Â
+    // ÏÜåÌôò Îì±Ïû•
     // =========================================================
 
     public virtual void BeginSummonAppearance()
@@ -497,7 +698,7 @@ public class SummonUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // ∞≈∏Æ
+    // Í±∞Î¶¨
     // =========================================================
 
     private float GetTargetDistance()
@@ -540,7 +741,81 @@ public class SummonUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // «««ÿ
+    // Î≥¥Ìò∏Îßâ
+    // =========================================================
+
+    public virtual void AddShield(
+        float amount,
+        float duration)
+    {
+        if (isDead ||
+            amount <= 0f ||
+            duration <= 0f)
+        {
+            return;
+        }
+
+        currentShield =
+            Mathf.Max(
+                currentShield,
+                amount
+            );
+
+        shieldTimer =
+            Mathf.Max(
+                shieldTimer,
+                duration
+            );
+    }
+
+    public virtual void AddShieldByMaxHealthPercent(
+        float percent,
+        float duration)
+    {
+        if (percent <= 0f)
+        {
+            return;
+        }
+
+        AddShield(
+            maxHealth * percent,
+            duration
+        );
+    }
+
+    public virtual void ClearShield()
+    {
+        currentShield =
+            0f;
+
+        shieldTimer =
+            0f;
+    }
+
+    private void UpdateShield()
+    {
+        if (currentShield <= 0f)
+        {
+            currentShield =
+                0f;
+
+            shieldTimer =
+                0f;
+
+            return;
+        }
+
+        shieldTimer -=
+            Time.deltaTime;
+
+        if (shieldTimer <= 0f)
+        {
+            ClearShield();
+        }
+    }
+
+    // =========================================================
+    // ÌîºÌï¥
     // =========================================================
 
     public virtual void TakeDamage(
@@ -560,13 +835,49 @@ public class SummonUnitBase : MonoBehaviour
                 damage - defense
             );
 
+        if (currentShield > 0f)
+        {
+            float absorbedDamage =
+                Mathf.Min(
+                    currentShield,
+                    finalDamage
+                );
+
+            currentShield -=
+                absorbedDamage;
+
+            finalDamage -=
+                absorbedDamage;
+
+            if (currentShield <= 0f)
+            {
+                currentShield =
+                    0f;
+
+                shieldTimer =
+                    0f;
+            }
+        }
+
+        if (finalDamage <= 0f)
+        {
+            if (visualController != null)
+            {
+                visualController.PlayHit();
+            }
+
+            return;
+        }
+
         currentHealth -=
             finalDamage;
 
-        if (currentHealth <= 0f)
+        if (currentHealth <= 0.0001f)
         {
             currentHealth =
                 0f;
+
+            ClearShield();
 
             Die();
 
@@ -580,7 +891,7 @@ public class SummonUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // ªÁ∏¡
+    // ÏÇ¨Îßù
     // =========================================================
 
     protected virtual void Die()
@@ -596,6 +907,8 @@ public class SummonUnitBase : MonoBehaviour
         currentHealth =
             0f;
 
+        ClearShield();
+
         currentTarget =
             null;
 
@@ -609,14 +922,10 @@ public class SummonUnitBase : MonoBehaviour
 
         StopMovement();
 
-        HideHealthBarsImmediately();
-
         SetCollidersEnabled(
             false
         );
 
-        // ±◊∑Ï¿« ∏∂¡ˆ∏∑ ∞≥√º∞° ¡◊æ˙¿ª ∂ß∏∏
-        // øÎ∑Æ π›»Ø
         if (summonGroup != null)
         {
             summonGroup.NotifyMemberDied();
@@ -640,30 +949,6 @@ public class SummonUnitBase : MonoBehaviour
         }
     }
 
-    private void HideHealthBarsImmediately()
-    {
-        SummonHealthBar[] healthBars =
-            GetComponentsInChildren<SummonHealthBar>(
-                true
-            );
-
-        for (int i = 0;
-             i < healthBars.Length;
-             i++)
-        {
-            if (healthBars[i] == null)
-            {
-                continue;
-            }
-
-            healthBars[i]
-                .gameObject
-                .SetActive(
-                    false
-                );
-        }
-    }
-
     private void DestroyAfterDeath()
     {
         Destroy(
@@ -672,7 +957,7 @@ public class SummonUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // ∏Æ∫ß
+    // Î¶¨Î≤®
     // =========================================================
 
     protected virtual void FindRibel()
@@ -725,7 +1010,7 @@ public class SummonUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // ¡˝∞·
+    // ÏßëÍ≤∞
     // =========================================================
 
     public virtual void RallyToRibel()
@@ -808,7 +1093,7 @@ public class SummonUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // ∞¯∞› Safety
+    // Í≥µÍ≤© ÏïàÏ†ÑÏû•Ïπò
     // =========================================================
 
     private void UpdateAttackSafety()
@@ -877,7 +1162,7 @@ public class SummonUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // Target
+    // Ï†Å ÌÉêÏÉâ
     // =========================================================
 
     protected virtual void SearchTarget()
@@ -956,7 +1241,8 @@ public class SummonUnitBase : MonoBehaviour
                 enemies[i]
                     .GetComponentInParent<EnemyUnitBase>();
 
-            if (enemy == null)
+            if (enemy == null ||
+                enemy.IsDead)
             {
                 continue;
             }
@@ -986,7 +1272,7 @@ public class SummonUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // Movement
+    // Ïù¥Îèô
     // =========================================================
 
     protected virtual void UpdateMovement()
@@ -1083,7 +1369,7 @@ public class SummonUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // Attack AI
+    // Í≥µÍ≤© AI
     // =========================================================
 
     protected virtual void FollowOrAttackTarget()
@@ -1163,6 +1449,10 @@ public class SummonUnitBase : MonoBehaviour
         );
     }
 
+    // =========================================================
+    // Í≥µÍ≤© ÏãúÏûë
+    // =========================================================
+
     protected virtual void TryAttack()
     {
         if (isDead ||
@@ -1186,7 +1476,8 @@ public class SummonUnitBase : MonoBehaviour
                     .GetComponentInChildren<EnemyUnitBase>();
         }
 
-        if (enemy == null)
+        if (enemy == null ||
+            enemy.IsDead)
         {
             currentTarget =
                 null;
@@ -1200,6 +1491,13 @@ public class SummonUnitBase : MonoBehaviour
         Vector2 toTarget =
             (Vector2)currentTarget.position -
             rb.position;
+
+        if (toTarget.sqrMagnitude >
+            0.0001f)
+        {
+            attackDirection =
+                toTarget.normalized;
+        }
 
         if (visualController != null &&
             toTarget.sqrMagnitude >
@@ -1234,10 +1532,41 @@ public class SummonUnitBase : MonoBehaviour
         }
     }
 
+    // =========================================================
+    // Ïã§Ï†ú Í≥µÍ≤©
+    // =========================================================
+
     protected virtual void ApplyAttackDamage()
     {
-        if (isDead ||
-            currentTarget == null)
+        if (isDead)
+        {
+            return;
+        }
+
+        // =====================================================
+        // ÏÜåÌôòÏàò Í≥µÍ≤© Ïù¥ÌéôÌä∏
+        // =====================================================
+
+        if (attackEffectEmitter != null)
+        {
+            Vector2 direction =
+                attackDirection;
+
+            if (direction.sqrMagnitude <
+                0.0001f)
+            {
+                direction =
+                    Vector2.right;
+            }
+
+            attackEffectEmitter.PlayEffect(
+                direction,
+                AttackEffectEmitter.OwnerType.Summon
+            );
+        }
+
+        if (currentTarget == null ||
+            !currentTarget.gameObject.activeInHierarchy)
         {
             return;
         }
@@ -1253,7 +1582,8 @@ public class SummonUnitBase : MonoBehaviour
                     .GetComponentInChildren<EnemyUnitBase>();
         }
 
-        if (enemy == null)
+        if (enemy == null ||
+            enemy.IsDead)
         {
             return;
         }
@@ -1272,6 +1602,10 @@ public class SummonUnitBase : MonoBehaviour
             attackDamage
         );
     }
+
+    // =========================================================
+    // Í≥µÍ≤© Ï¢ÖÎ£å
+    // =========================================================
 
     protected virtual void FinishAttack()
     {
@@ -1325,7 +1659,7 @@ public class SummonUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // Follow
+    // Î¶¨Î≤® Ï∂îÏ¢Ö
     // =========================================================
 
     protected virtual void FollowRibel()
@@ -1379,6 +1713,10 @@ public class SummonUnitBase : MonoBehaviour
         );
     }
 
+    // =========================================================
+    // Ïù¥Îèô
+    // =========================================================
+
     protected virtual void MoveToward(
         Vector2 destination)
     {
@@ -1426,6 +1764,10 @@ public class SummonUnitBase : MonoBehaviour
         );
     }
 
+    // =========================================================
+    // Ï†ïÏßÄ
+    // =========================================================
+
     protected virtual void StopMovement()
     {
         if (rb != null)
@@ -1447,6 +1789,10 @@ public class SummonUnitBase : MonoBehaviour
     }
 
 #if UNITY_EDITOR
+
+    // =========================================================
+    // Inspector Í∞í Î≥¥Ìò∏
+    // =========================================================
 
     protected virtual void OnValidate()
     {
@@ -1505,6 +1851,12 @@ public class SummonUnitBase : MonoBehaviour
             Mathf.Max(
                 0.05f,
                 attackInterval
+            );
+
+        attackHitRangeMultiplier =
+            Mathf.Max(
+                0.1f,
+                attackHitRangeMultiplier
             );
 
         maxAttackLockTime =

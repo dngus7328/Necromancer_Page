@@ -1,147 +1,80 @@
-using UnityEngine;
-using UnityEngine.EventSystems;
+ï»¿using UnityEngine;
 
 public class SummonCommandController : MonoBehaviour
 {
-    // =========================================================
-    // Q ÀÔ·Â
-    // =========================================================
+    [Header("Q ì…ë ¥")]
+    [SerializeField] private float shortPressTime = 0.25f;
+    [SerializeField] private float holdTime = 0.25f;
 
-    [Header("Q ÀÔ·Â")]
-    [SerializeField]
-    private float shortPressTime = 0.25f;
+    [Header("ë¦¬ë²¨")]
+    [SerializeField] private Transform ribel;
 
-    [SerializeField]
-    private float holdTime = 0.25f;
-
-    // =========================================================
-    // ¸®º§
-    // =========================================================
-
-    [Header("¸®º§")]
-    [SerializeField]
-    private Transform ribel;
-
-    // =========================================================
-    // Áı°á À§Ä¡ ¸¶Ä¿
-    // =========================================================
-
-    [Header("Áı°á À§Ä¡ ¸¶Ä¿")]
-
-    [Tooltip("Áı°á ¼º°ø À§Ä¡¿¡ Ç¥½ÃÇÒ ¿ùµå ÀÌÆåÆ® ÇÁ¸®ÆÕ")]
-    [SerializeField]
-    private GameObject rallyMarkerPrefab;
-
-    [Tooltip("¸¶Ä¿ À§Ä¡ º¸Á¤")]
-    [SerializeField]
-    private Vector3 rallyMarkerOffset =
-        Vector3.zero;
-
-    [Tooltip("»õ Áı°á ¸¶Ä¿°¡ »ı±æ ¶§ ÀÌÀü ¸¶Ä¿¸¦ Á¦°Å")]
-    [SerializeField]
-    private bool replacePreviousMarker =
-        true;
-
-    // =========================================================
-    // Runtime
-    // =========================================================
+    [Header("ì§‘ê²° ìœ„ì¹˜ í‘œì‹œ")]
+    [SerializeField] private RallyMarkerSpawner rallyMarkerSpawner;
 
     private Camera mainCamera;
 
     private bool qPressed;
-
     private bool holdMode;
-
     private bool pointCommandUsed;
 
     private float qPressTime;
 
     private bool shouldBlockRibelMoveThisFrame;
 
-    private GameObject currentRallyMarker;
-
-    // =========================================================
-    // ¿ÜºÎ È®ÀÎ
-    // =========================================================
-
     public bool IsPointCommandMode =>
-        qPressed &&
-        holdMode;
+        qPressed && holdMode;
 
     public bool ShouldBlockRibelMoveThisFrame =>
         shouldBlockRibelMoveThisFrame;
 
-    // =========================================================
-    // Unity
-    // =========================================================
-
     private void Awake()
     {
-        mainCamera =
-            Camera.main;
+        mainCamera = Camera.main;
 
         FindRibel();
+        FindRallyMarkerSpawner();
     }
 
     private void Update()
     {
-        shouldBlockRibelMoveThisFrame =
-            false;
+        shouldBlockRibelMoveThisFrame = false;
 
         HandleQInput();
     }
 
     // =========================================================
-    // Q ÀÔ·Â
+    // Q ì…ë ¥
     // =========================================================
 
     private void HandleQInput()
     {
-        // -----------------------------------------------------
-        // Q ´©¸§ ½ÃÀÛ
-        // -----------------------------------------------------
-
-        if (Input.GetKeyDown(
-                KeyCode.Q))
+        if (Input.GetKeyDown(KeyCode.Q))
         {
-            // ¼ÒÈ¯ ¹èÄ¡ Áß¿¡´Â Áı°á ÀÔ·Â ½ÃÀÛ ¾È ÇÔ
+            // ì†Œí™˜ ë°°ì¹˜ ì¤‘ì—ëŠ” ì§‘ê²° ëª…ë ¹ ì‚¬ìš© ì•ˆ í•¨
             if (SummonManager.Instance != null &&
                 SummonManager.Instance.IsPlacementMode)
             {
                 return;
             }
 
-            qPressed =
-                true;
+            qPressed = true;
+            holdMode = false;
+            pointCommandUsed = false;
 
-            holdMode =
-                false;
-
-            pointCommandUsed =
-                false;
-
-            qPressTime =
-                0f;
+            qPressTime = 0f;
         }
 
-        // -----------------------------------------------------
-        // Q ´©¸£°í ÀÖ´Â Áß
-        // -----------------------------------------------------
-
         if (qPressed &&
-            Input.GetKey(
-                KeyCode.Q))
+            Input.GetKey(KeyCode.Q))
         {
-            qPressTime +=
-                Time.deltaTime;
+            qPressTime += Time.deltaTime;
 
-            // ÀÏÁ¤ ½Ã°£ ÀÌ»ó ´©¸£¸é À§Ä¡ Áı°á ¸ğµå
+            // ì¼ì • ì‹œê°„ ì´ìƒ Që¥¼ ëˆ„ë¥´ë©´ ì§€ì • ìœ„ì¹˜ ì§‘ê²° ëª¨ë“œ
             if (!holdMode &&
-                qPressTime >=
-                holdTime)
+                qPressTime >= holdTime)
             {
-                holdMode =
-                    true;
+                holdMode = true;
 
                 if (CommandRangeVisual.Instance != null)
                 {
@@ -150,50 +83,34 @@ public class SummonCommandController : MonoBehaviour
                 }
             }
 
-            // -------------------------------------------------
-            // Q È¦µå + ÁÂÅ¬¸¯
-            // -------------------------------------------------
-
+            // Që¥¼ ëˆ„ë¥¸ ìƒíƒœì—ì„œ ì¢Œí´ë¦­
             if (holdMode &&
                 Input.GetMouseButtonDown(0))
             {
-                // ÀÌ Å¬¸¯Àº ¸®º§ ÀÌµ¿¿¡ »ç¿ëÇÏ¸é ¾È µÊ
-                shouldBlockRibelMoveThisFrame =
-                    true;
+                // ì´ í´ë¦­ì€ ë¦¬ë²¨ ì´ë™ì— ì‚¬ìš©í•˜ì§€ ì•ŠìŒ
+                shouldBlockRibelMoveThisFrame = true;
 
                 TryRallyToMousePosition();
             }
 
-            // -------------------------------------------------
-            // Q È¦µå + ¿ìÅ¬¸¯ = Ãë¼Ò
-            // -------------------------------------------------
-
+            // ìš°í´ë¦­ìœ¼ë¡œ ì§‘ê²° ëª¨ë“œ ì·¨ì†Œ
             if (holdMode &&
                 Input.GetMouseButtonDown(1))
             {
-                shouldBlockRibelMoveThisFrame =
-                    true;
+                shouldBlockRibelMoveThisFrame = true;
 
                 EndQCommand();
-
                 return;
             }
         }
 
-        // -----------------------------------------------------
-        // Q ¶À
-        // -----------------------------------------------------
-
+        // Që¥¼ ì§§ê²Œ ëˆŒë €ë‹¤ ë–¼ë©´ ë¦¬ë²¨ì—ê²Œ ì§‘ê²°
         if (qPressed &&
-            Input.GetKeyUp(
-                KeyCode.Q))
+            Input.GetKeyUp(KeyCode.Q))
         {
-            // Âª°Ô ´­·¶À» °æ¿ì
-            // ¸®º§ À§Ä¡·Î Àü¿ø Áı°á
             if (!pointCommandUsed &&
                 !holdMode &&
-                qPressTime <=
-                shortPressTime)
+                qPressTime <= shortPressTime)
             {
                 RallyAllToRibel();
             }
@@ -203,23 +120,14 @@ public class SummonCommandController : MonoBehaviour
     }
 
     // =========================================================
-    // ÁöÁ¤ À§Ä¡ Áı°á
+    // ì§€ì • ìœ„ì¹˜ ì§‘ê²° ì‹œë„
     // =========================================================
 
     private void TryRallyToMousePosition()
     {
-        // UI À§ Å¬¸¯Àº ¹«½Ã
-        if (EventSystem.current != null &&
-            EventSystem.current
-                .IsPointerOverGameObject())
-        {
-            return;
-        }
-
         if (mainCamera == null)
         {
-            mainCamera =
-                Camera.main;
+            mainCamera = Camera.main;
 
             if (mainCamera == null)
             {
@@ -238,13 +146,7 @@ public class SummonCommandController : MonoBehaviour
                 mouseWorld3.y
             );
 
-        // -----------------------------------------------------
-        // Áı°á °¡´É »ç°Å¸® ¹ÛÀÌ¸é ¹«È¿
-        //
-        // ¸¶Ä¿µµ »ı¼ºÇÏÁö ¾ÊÀ½
-        // ¸®º§µµ ¿òÁ÷ÀÌÁö ¾ÊÀ½
-        // -----------------------------------------------------
-
+        // ì§‘ê²° ê°€ëŠ¥ ë²”ìœ„ ë°–ì´ë©´ ë¬´íš¨
         if (CommandRangeVisual.Instance != null &&
             !CommandRangeVisual.Instance
                 .IsInsideRange(point))
@@ -252,194 +154,78 @@ public class SummonCommandController : MonoBehaviour
             return;
         }
 
-        // -----------------------------------------------------
-        // ½ÇÁ¦ Áı°á
-        // -----------------------------------------------------
+        // ì†Œí™˜ìˆ˜ë“¤ì„ í´ë¦­í•œ ìœ„ì¹˜ë¡œ ì§‘ê²°
+        RallyAllToPoint(point);
 
-        RallyAllToPoint(
-            point
-        );
+        // í´ë¦­í•œ ìœ„ì¹˜ì— ì§‘ê²° ì´í™íŠ¸ í‘œì‹œ
+        if (rallyMarkerSpawner != null)
+        {
+            rallyMarkerSpawner.ShowMarker(point);
+        }
 
-        // -----------------------------------------------------
-        // Áı°á ¼º°ø À§Ä¡ Ç¥½Ã
-        // -----------------------------------------------------
-
-        ShowRallyMarker(
-            point
-        );
-
-        pointCommandUsed =
-            true;
+        pointCommandUsed = true;
     }
 
     // =========================================================
-    // Q Âª°Ô - ¸®º§¿¡°Ô Áı°á
+    // ë¦¬ë²¨ì—ê²Œ ì§‘ê²°
     // =========================================================
 
     private void RallyAllToRibel()
     {
-        FindRibel();
-
-        if (ribel == null)
-        {
-            return;
-        }
-
         SummonUnitBase[] summons =
             FindObjectsOfType<SummonUnitBase>();
 
-        for (int i = 0;
-             i < summons.Length;
-             i++)
+        for (int i = 0; i < summons.Length; i++)
         {
             if (summons[i] == null)
             {
                 continue;
             }
 
-            summons[i]
-                .RallyToRibel();
+            summons[i].RallyToRibel();
         }
 
-        // ¸®º§ À§Ä¡¿¡µµ Áı°á ¸¶Ä¿ Ç¥½Ã
-        ShowRallyMarker(
-            ribel.position
-        );
+        // Q ë‹¨ë… ì§‘ê²° ì‹œ ë¦¬ë²¨ ìœ„ì¹˜ì— ì§‘ê²° ì´í™íŠ¸ í‘œì‹œ
+        if (ribel != null &&
+            rallyMarkerSpawner != null)
+        {
+            rallyMarkerSpawner.ShowMarker(
+                ribel.position
+            );
+        }
     }
 
     // =========================================================
-    // ÁöÁ¤ À§Ä¡ Áı°á
+    // ì§€ì • ìœ„ì¹˜ë¡œ ì§‘ê²°
     // =========================================================
 
-    private void RallyAllToPoint(
-        Vector2 point)
+    private void RallyAllToPoint(Vector2 point)
     {
         SummonUnitBase[] summons =
             FindObjectsOfType<SummonUnitBase>();
 
-        for (int i = 0;
-             i < summons.Length;
-             i++)
+        for (int i = 0; i < summons.Length; i++)
         {
             if (summons[i] == null)
             {
                 continue;
             }
 
-            summons[i]
-                .RallyToPoint(
-                    point
-                );
+            summons[i].RallyToPoint(point);
         }
     }
 
     // =========================================================
-    // ¡Ú Áı°á ¸¶Ä¿ Ç¥½Ã
-    // =========================================================
-
-    private void ShowRallyMarker(
-        Vector2 worldPosition)
-    {
-        if (rallyMarkerPrefab == null)
-        {
-            Debug.LogWarning(
-                "[SummonCommandController] " +
-                "Rally Marker PrefabÀÌ ºñ¾î ÀÖ½À´Ï´Ù.",
-                gameObject
-            );
-
-            return;
-        }
-
-        // -----------------------------------------------------
-        // ±âÁ¸ ¸¶Ä¿ Á¦°Å
-        // -----------------------------------------------------
-
-        if (replacePreviousMarker &&
-            currentRallyMarker != null)
-        {
-            Destroy(
-                currentRallyMarker
-            );
-
-            currentRallyMarker =
-                null;
-        }
-
-        // -----------------------------------------------------
-        // »ı¼º À§Ä¡
-        // -----------------------------------------------------
-
-        Vector3 spawnPosition =
-            new Vector3(
-                worldPosition.x,
-                worldPosition.y,
-                0f
-            );
-
-        spawnPosition +=
-            rallyMarkerOffset;
-
-        // -----------------------------------------------------
-        // ½ÇÁ¦ »ı¼º
-        // -----------------------------------------------------
-
-        currentRallyMarker =
-            Instantiate(
-                rallyMarkerPrefab,
-                spawnPosition,
-                Quaternion.identity
-            );
-
-        if (currentRallyMarker == null)
-        {
-            Debug.LogError(
-                "[SummonCommandController] " +
-                "Áı°á ¸¶Ä¿ »ı¼º¿¡ ½ÇÆĞÇß½À´Ï´Ù.",
-                gameObject
-            );
-
-            return;
-        }
-
-        // -----------------------------------------------------
-        // SpriteRenderer°¡ ÇÏ³ª¶óµµ ÀÖ´ÂÁö È®ÀÎ
-        // -----------------------------------------------------
-
-        SpriteRenderer[] renderers =
-            currentRallyMarker
-                .GetComponentsInChildren<SpriteRenderer>(
-                    true
-                );
-
-        if (renderers.Length <= 0)
-        {
-            Debug.LogWarning(
-                "[SummonCommandController] " +
-                "Áı°á ¸¶Ä¿ ÇÁ¸®ÆÕ ¾È¿¡ SpriteRenderer°¡ ¾ø½À´Ï´Ù. " +
-                "¿ùµå ÀÌÆåÆ®¶ó¸é UI Image°¡ ¾Æ´Ï¶ó SpriteRenderer¸¦ »ç¿ëÇÏ¼¼¿ä.",
-                currentRallyMarker
-            );
-        }
-    }
-
-    // =========================================================
-    // Q ¸í·É Á¾·á
+    // Q ì§‘ê²° ëª…ë ¹ ì¢…ë£Œ
     // =========================================================
 
     private void EndQCommand()
     {
-        qPressed =
-            false;
+        qPressed = false;
+        holdMode = false;
+        pointCommandUsed = false;
 
-        holdMode =
-            false;
-
-        pointCommandUsed =
-            false;
-
-        qPressTime =
-            0f;
+        qPressTime = 0f;
 
         if (CommandRangeVisual.Instance != null)
         {
@@ -449,7 +235,7 @@ public class SummonCommandController : MonoBehaviour
     }
 
     // =========================================================
-    // ¸®º§ Ã£±â
+    // ë¦¬ë²¨ ì°¾ê¸°
     // =========================================================
 
     private void FindRibel()
@@ -466,9 +252,23 @@ public class SummonCommandController : MonoBehaviour
 
         if (ribelObject != null)
         {
-            ribel =
-                ribelObject.transform;
+            ribel = ribelObject.transform;
         }
+    }
+
+    // =========================================================
+    // RallyMarkerSpawner ì°¾ê¸°
+    // =========================================================
+
+    private void FindRallyMarkerSpawner()
+    {
+        if (rallyMarkerSpawner != null)
+        {
+            return;
+        }
+
+        rallyMarkerSpawner =
+            FindObjectOfType<RallyMarkerSpawner>();
     }
 
 #if UNITY_EDITOR

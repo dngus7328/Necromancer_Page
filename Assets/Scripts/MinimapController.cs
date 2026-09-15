@@ -6,20 +6,36 @@ public class MinimapController : MonoBehaviour
 {
     [Header("현재 방")]
     [Tooltip("현재 방 범위. CameraBounds의 BoxCollider2D 연결")]
-    [SerializeField] private BoxCollider2D roomBounds;
+    [SerializeField]
+    private BoxCollider2D roomBounds;
 
     [Header("벽 / 장애물")]
     [Tooltip("미니맵에서 막힌 영역으로 표시할 레이어")]
-    [SerializeField] private LayerMask blockerLayer;
+    [SerializeField]
+    private LayerMask blockerLayer;
 
     [Header("리벨")]
-    [SerializeField] private Transform ribel;
+    [SerializeField]
+    private Transform ribel;
 
     [Header("미니맵 해상도")]
     [Tooltip("클수록 선명하지만 갱신 비용 증가")]
-    [SerializeField] private int textureWidth = 160;
+    [SerializeField]
+    private int textureWidth = 160;
 
-    [SerializeField] private int textureHeight = 100;
+    [SerializeField]
+    private int textureHeight = 100;
+
+    [Header("점 표시 안전 영역")]
+    [Tooltip("좌우 테두리 안쪽으로 점을 제한할 여백. 미니맵 텍스처 픽셀 기준")]
+    [Min(0)]
+    [SerializeField]
+    private int innerPaddingX = 8;
+
+    [Tooltip("상하 테두리 안쪽으로 점을 제한할 여백. 미니맵 텍스처 픽셀 기준")]
+    [Min(0)]
+    [SerializeField]
+    private int innerPaddingY = 8;
 
     [Header("색")]
     [SerializeField]
@@ -68,13 +84,19 @@ public class MinimapController : MonoBehaviour
         );
 
     [Header("점 크기")]
-    [SerializeField] private int ribelDotRadius = 2;
-    [SerializeField] private int summonDotRadius = 1;
-    [SerializeField] private int enemyDotRadius = 1;
+    [SerializeField]
+    private int ribelDotRadius = 2;
+
+    [SerializeField]
+    private int summonDotRadius = 1;
+
+    [SerializeField]
+    private int enemyDotRadius = 1;
 
     [Header("갱신")]
     [Tooltip("유닛 위치 갱신 주기")]
-    [SerializeField] private float refreshInterval = 0.1f;
+    [SerializeField]
+    private float refreshInterval = 0.1f;
 
     private RawImage rawImage;
     private Texture2D minimapTexture;
@@ -290,6 +312,7 @@ public class MinimapController : MonoBehaviour
         if (roomBounds == null)
         {
             minimapTexture.Apply();
+
             return;
         }
 
@@ -345,8 +368,7 @@ public class MinimapController : MonoBehaviour
             }
         }
 
-        // 리벨은 항상 마지막에 그려서
-        // 다른 점에 가리지 않게
+        // 리벨은 항상 마지막에 그려서 다른 점에 가리지 않게 함
         if (ribel != null)
         {
             DrawWorldDot(
@@ -376,6 +398,12 @@ public class MinimapController : MonoBehaviour
                 bounds
             );
 
+        radius =
+            Mathf.Max(
+                0,
+                radius
+            );
+
         int centerX =
             Mathf.RoundToInt(
                 pixel.x
@@ -386,10 +414,72 @@ public class MinimapController : MonoBehaviour
                 pixel.y
             );
 
-        radius =
-            Mathf.Max(
-                0,
-                radius
+        // -----------------------------------------------------
+        // 프레임 안쪽 안전 영역으로 점 중심을 제한
+        //
+        // radius까지 포함해서 제한하므로 점의 바깥 픽셀도
+        // 테두리 영역으로 넘어가지 않습니다.
+        // -----------------------------------------------------
+
+        int minX =
+            innerPaddingX +
+            radius;
+
+        int maxX =
+            textureWidth -
+            1 -
+            innerPaddingX -
+            radius;
+
+        int minY =
+            innerPaddingY +
+            radius;
+
+        int maxY =
+            textureHeight -
+            1 -
+            innerPaddingY -
+            radius;
+
+        // 잘못된 큰 Padding 값이 들어가도 오류가 나지 않게 보호
+        if (minX > maxX)
+        {
+            int middleX =
+                (textureWidth - 1) /
+                2;
+
+            minX =
+                middleX;
+
+            maxX =
+                middleX;
+        }
+
+        if (minY > maxY)
+        {
+            int middleY =
+                (textureHeight - 1) /
+                2;
+
+            minY =
+                middleY;
+
+            maxY =
+                middleY;
+        }
+
+        centerX =
+            Mathf.Clamp(
+                centerX,
+                minX,
+                maxX
+            );
+
+        centerY =
+            Mathf.Clamp(
+                centerY,
+                minY,
+                maxY
             );
 
         for (int y = -radius;
@@ -401,10 +491,12 @@ public class MinimapController : MonoBehaviour
                  x++)
             {
                 int px =
-                    centerX + x;
+                    centerX +
+                    x;
 
                 int py =
-                    centerY + y;
+                    centerY +
+                    y;
 
                 if (px < 0 ||
                     px >= textureWidth ||
@@ -515,6 +607,18 @@ public class MinimapController : MonoBehaviour
             Mathf.Max(
                 32,
                 textureHeight
+            );
+
+        innerPaddingX =
+            Mathf.Max(
+                0,
+                innerPaddingX
+            );
+
+        innerPaddingY =
+            Mathf.Max(
+                0,
+                innerPaddingY
             );
 
         ribelDotRadius =

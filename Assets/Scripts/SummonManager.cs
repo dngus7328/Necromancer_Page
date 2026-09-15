@@ -460,8 +460,8 @@ public class SummonManager : MonoBehaviour
             float cooldown =
                 Mathf.Max(
                     0.01f,
-                    AugmentRuntimeEffects.GetCooldown(
-                        data.Cooldown
+                    GetActualCooldown(
+                        i
                     )
                 );
 
@@ -500,8 +500,8 @@ public class SummonManager : MonoBehaviour
         }
 
         remainingCooldowns[index] =
-            AugmentRuntimeEffects.GetCooldown(
-                data.Cooldown
+            GetActualCooldown(
+                index
             );
 
         UpdateCooldownUI();
@@ -531,6 +531,85 @@ public class SummonManager : MonoBehaviour
         }
     }
 
+    private bool TryShowSummonFailureMessage(
+        int slotIndex,
+        SummonData data,
+        bool includePositionCheck)
+    {
+        if (data == null)
+        {
+            return false;
+        }
+
+        if (IsSlotOnCooldown(
+                slotIndex
+            ))
+        {
+            ShowSystemMessage(
+                SystemMessageUI.MessageType.Cooldown
+            );
+
+            return true;
+        }
+
+        if (currentMana <
+            GetActualManaCost(
+                slotIndex
+            ))
+        {
+            ShowSystemMessage(
+                SystemMessageUI.MessageType.NotEnoughMana
+            );
+
+            return true;
+        }
+
+        if (currentCapacity +
+            data.CapacityCost >
+            maxCapacity)
+        {
+            ShowSystemMessage(
+                SystemMessageUI.MessageType.CapacityFull
+            );
+
+            return true;
+        }
+
+        if (includePositionCheck)
+        {
+            Collider2D blocked =
+                Physics2D.OverlapCircle(
+                    currentPlacementPosition,
+                    placementCheckRadius,
+                    blockedLayers
+                );
+
+            if (blocked != null)
+            {
+                ShowSystemMessage(
+                    SystemMessageUI.MessageType.InvalidPosition
+                );
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void ShowSystemMessage(
+        SystemMessageUI.MessageType type)
+    {
+        if (SystemMessageUI.Instance == null)
+        {
+            return;
+        }
+
+        SystemMessageUI.Instance.Show(
+            type
+        );
+    }
+
     private void SelectSlot(
         int index)
     {
@@ -554,7 +633,11 @@ public class SummonManager : MonoBehaviour
             return;
         }
 
-        if (IsSlotOnCooldown(index))
+        if (TryShowSummonFailureMessage(
+                index,
+                data,
+                false
+            ))
         {
             return;
         }
@@ -1070,13 +1153,10 @@ public class SummonManager : MonoBehaviour
             return false;
         }
 
-        float actualManaCost =
-            AugmentRuntimeEffects.GetManaCost(
-                data.ManaCost
-            );
-
         if (currentMana <
-            actualManaCost)
+            GetActualManaCost(
+                selectedSlotIndex
+            ))
         {
             return false;
         }
@@ -1136,6 +1216,24 @@ public class SummonManager : MonoBehaviour
         // 배치 모드는 그대로 유지.
         if (!currentPlacementValid)
         {
+            SummonData data =
+                GetSlotData(
+                    selectedSlotIndex
+                );
+
+            // 쿨타임 / 마나 / 용량 / 막힌 위치 중
+            // 실제 실패 원인을 하나만 표시합니다.
+            if (!TryShowSummonFailureMessage(
+                    selectedSlotIndex,
+                    data,
+                    true
+                ))
+            {
+                ShowSystemMessage(
+                    SystemMessageUI.MessageType.InvalidPosition
+                );
+            }
+
             return;
         }
 
@@ -1171,7 +1269,11 @@ public class SummonManager : MonoBehaviour
             return;
         }
 
-        if (IsSlotOnCooldown(slotIndex))
+        if (TryShowSummonFailureMessage(
+                slotIndex,
+                data,
+                true
+            ))
         {
             return;
         }
@@ -1179,6 +1281,10 @@ public class SummonManager : MonoBehaviour
         if (!CheckPlacementValid(
                 currentPlacementPosition))
         {
+            ShowSystemMessage(
+                SystemMessageUI.MessageType.InvalidPosition
+            );
+
             return;
         }
 
@@ -1289,8 +1395,8 @@ public class SummonManager : MonoBehaviour
         }
 
         currentMana -=
-            AugmentRuntimeEffects.GetManaCost(
-                data.ManaCost
+            GetActualManaCost(
+                slotIndex
             );
 
         currentCapacity +=
@@ -1652,7 +1758,9 @@ public class SummonManager : MonoBehaviour
         int slotIndex)
     {
         SummonData data =
-            GetSlotData(slotIndex);
+            GetSlotData(
+                slotIndex
+            );
 
         if (data == null)
         {
@@ -1668,7 +1776,9 @@ public class SummonManager : MonoBehaviour
         int slotIndex)
     {
         SummonData data =
-            GetSlotData(slotIndex);
+            GetSlotData(
+                slotIndex
+            );
 
         if (data == null)
         {
@@ -1701,10 +1811,21 @@ public class SummonManager : MonoBehaviour
     public void AddMana(
         float amount)
     {
+        if (amount <= 0f)
+        {
+            return;
+        }
+
+        float finalAmount =
+            AugmentRuntimeEffects
+                .GetManaRecoveryAmount(
+                    amount
+                );
+
         currentMana =
             Mathf.Clamp(
                 currentMana +
-                amount,
+                finalAmount,
                 0f,
                 maxMana
             );

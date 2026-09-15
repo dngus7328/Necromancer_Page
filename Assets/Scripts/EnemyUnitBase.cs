@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody2D))]
@@ -5,12 +6,12 @@ public class EnemyUnitBase : MonoBehaviour
 {
     public enum TargetType
     {
-        RibelOnly,
         Nearest,
         SummonOnly,
         HighestDefense,
         HighestMaxHealth,
         Farthest,
+        RibelOnly,
         Escape
     }
 
@@ -19,14 +20,21 @@ public class EnemyUnitBase : MonoBehaviour
     // =========================================================
 
     [Header("기본 능력치")]
+
     [SerializeField]
     private float maxHealth = 50f;
 
     [Header("처치 보상")]
+
     [SerializeField]
     private float manaReward = 5f;
 
+    // =========================================================
+    // 이동
+    // =========================================================
+
     [Header("이동")]
+
     [SerializeField]
     private float moveSpeed = 3f;
 
@@ -35,19 +43,79 @@ public class EnemyUnitBase : MonoBehaviour
     // =========================================================
 
     [Header("공격")]
+
     [SerializeField]
     private float attackDamage = 10f;
 
-    [Tooltip("Collider 표면 사이 거리가 이 값 이하이면 공격 시작")]
+    [Tooltip(
+        "적과 대상의 Collider 표면 사이가 " +
+        "이 거리 이하가 되면 공격을 시작합니다."
+    )]
     [SerializeField]
     private float attackRange = 0.15f;
 
-    [Tooltip("공격 시작 후 이 거리까지는 움직이지 않고 계속 공격")]
+    [Tooltip(
+        "공격 시작 후 대상이 이 거리 안에 있으면 " +
+        "공격 상태를 유지합니다."
+    )]
     [SerializeField]
     private float attackKeepRange = 0.35f;
 
+    [Tooltip("한 번 공격한 뒤 다음 공격까지의 시간")]
     [SerializeField]
     private float attackInterval = 1.2f;
+
+    // =========================================================
+    // 접촉 피해
+    // =========================================================
+
+    [Header("접촉 피해")]
+
+    [Tooltip(
+        "켜면 적의 본체 Collider가 리벨의 Collider와 닿았을 때 " +
+        "약한 접촉 피해를 줍니다."
+    )]
+    [SerializeField]
+    private bool useContactDamage = true;
+
+    [SerializeField]
+    private float contactDamage = 3f;
+
+    [Tooltip(
+        "계속 겹쳐 있어도 이 시간마다 한 번만 접촉 피해를 시도합니다. " +
+        "리벨의 피격 무적 시간도 그대로 적용됩니다."
+    )]
+    [SerializeField]
+    private float contactDamageInterval = 0.6f;
+
+    // =========================================================
+    // 실제 근접 공격 히트박스
+    // =========================================================
+
+    [Header("근접 공격 히트박스")]
+
+    [Tooltip(
+        "공격 프레임 순간 실제로 피해를 주는 범위입니다.\n\n" +
+        "X = 공격 방향으로의 길이\n" +
+        "Y = 공격 범위의 폭"
+    )]
+    [SerializeField]
+    private Vector2 attackHitboxSize =
+        new Vector2(1.0f, 0.8f);
+
+    [Tooltip(
+        "적 중심에서 공격 방향 쪽으로 " +
+        "히트박스를 얼마나 앞에 배치할지 정합니다."
+    )]
+    [SerializeField]
+    private float attackHitboxForwardOffset = 0.55f;
+
+    [Tooltip(
+        "공격 판정에 검사할 Layer입니다.\n" +
+        "Everything으로 두어도 코드에서 리벨과 소환수만 피해를 받습니다."
+    )]
+    [SerializeField]
+    private LayerMask attackTargetMask = ~0;
 
     // =========================================================
     // 타깃
@@ -55,29 +123,61 @@ public class EnemyUnitBase : MonoBehaviour
 
     [Header("타깃 설정")]
 
-    [Tooltip(
-        "기본 적은 RibelOnly를 사용합니다. " +
-        "다른 값은 특수 타깃 규칙을 가진 적에게만 사용합니다."
-    )]
     [SerializeField]
     private TargetType targetType =
-        TargetType.RibelOnly;
+        TargetType.Nearest;
 
-    [Tooltip("소환수 레이어")]
     [SerializeField]
     private LayerMask summonLayer;
 
-    [Tooltip("특수 적이 소환수를 탐색하는 거리")]
     [SerializeField]
     private float detectionRange = 7f;
 
-    [Tooltip("현재 타깃이 이 거리보다 멀어지면 타깃을 다시 판단")]
     [SerializeField]
     private float disengageRange = 10f;
 
-    [Tooltip("타깃 재검사 간격")]
     [SerializeField]
     private float searchInterval = 0.2f;
+
+    // =========================================================
+    // 비주얼
+    // =========================================================
+
+    [Header("비주얼")]
+
+    [SerializeField]
+    private EnemyVisualController visualController;
+
+    // =========================================================
+    // 디버그 표시
+    // =========================================================
+
+    [Header("디버그 표시")]
+
+    [Tooltip(
+        "Scene 뷰에서 실제 근접 공격 히트박스를 표시합니다."
+    )]
+    [SerializeField]
+    private bool showAttackHitbox = true;
+
+    [Tooltip(
+        "켜면 이 적을 선택하지 않아도 " +
+        "Scene 뷰에서 공격 히트박스가 계속 표시됩니다."
+    )]
+    [SerializeField]
+    private bool alwaysShowAttackHitbox = false;
+
+    [Tooltip(
+        "공격을 시작하는 거리도 Scene 뷰에 표시합니다."
+    )]
+    [SerializeField]
+    private bool showAttackStartRange = false;
+
+    [Tooltip(
+        "소환수를 탐지하는 범위를 Scene 뷰에 표시합니다."
+    )]
+    [SerializeField]
+    private bool showDetectionRange = false;
 
     // =========================================================
     // Runtime
@@ -86,25 +186,34 @@ public class EnemyUnitBase : MonoBehaviour
     private Rigidbody2D rb;
 
     private Transform ribel;
-
     private Transform currentTarget;
 
     private Collider2D bodyCollider;
 
+    private SpriteRenderer bodySpriteRenderer;
+
+    private RibelHealth ribelHealth;
+    private Collider2D ribelCollider;
+
     private float currentHealth;
 
     private float attackTimer;
-
     private float searchTimer;
+    private float contactDamageTimer;
 
     private bool isDead;
 
     private bool isAttackMode;
+    private bool isAttacking;
 
     private RigidbodyConstraints2D normalConstraints;
 
+    // 공격을 시작했을 때의 실제 공격 방향
+    private Vector2 attackDirection =
+        Vector2.down;
+
     // =========================================================
-    // 외부 확인
+    // Property
     // =========================================================
 
     public float CurrentHealth =>
@@ -112,6 +221,9 @@ public class EnemyUnitBase : MonoBehaviour
 
     public float MaxHealth =>
         maxHealth;
+
+    public bool IsDead =>
+        isDead;
 
     public float HealthRatio
     {
@@ -144,10 +256,15 @@ public class EnemyUnitBase : MonoBehaviour
         bodyCollider =
             GetComponent<Collider2D>();
 
-        if (bodyCollider == null)
+        // 본체에 Collider가 없다면
+        // 자식에서 Trigger가 아닌 Collider를 찾음
+        if (bodyCollider == null ||
+            bodyCollider.isTrigger)
         {
             Collider2D[] colliders =
                 GetComponentsInChildren<Collider2D>();
+
+            bodyCollider = null;
 
             for (int i = 0;
                  i < colliders.Length;
@@ -164,6 +281,25 @@ public class EnemyUnitBase : MonoBehaviour
             }
         }
 
+        if (visualController == null)
+        {
+            visualController =
+                GetComponentInChildren<EnemyVisualController>();
+        }
+
+        if (visualController != null)
+        {
+            bodySpriteRenderer =
+                visualController
+                    .GetComponentInChildren<SpriteRenderer>();
+        }
+
+        if (bodySpriteRenderer == null)
+        {
+            bodySpriteRenderer =
+                GetComponentInChildren<SpriteRenderer>();
+        }
+
         currentHealth =
             maxHealth;
     }
@@ -172,7 +308,7 @@ public class EnemyUnitBase : MonoBehaviour
     {
         FindRibel();
 
-        SetInitialTarget();
+        SetRibelAsTarget();
     }
 
     private void Update()
@@ -183,6 +319,8 @@ public class EnemyUnitBase : MonoBehaviour
         }
 
         UpdateTimers();
+
+        UpdateContactDamage();
 
         UpdateTarget();
     }
@@ -199,8 +337,39 @@ public class EnemyUnitBase : MonoBehaviour
         UpdateMovement();
     }
 
+    private void LateUpdate()
+    {
+        UpdateYSorting();
+    }
+
     // =========================================================
-    // 리벨
+    // Collider 바닥 기준 앞뒤 정렬
+    // =========================================================
+
+    private void UpdateYSorting()
+    {
+        if (bodySpriteRenderer == null ||
+            bodyCollider == null ||
+            !bodyCollider.enabled)
+        {
+            return;
+        }
+
+        float bottomY =
+            bodyCollider.bounds.min.y;
+
+        bodySpriteRenderer.sortingOrder =
+            Mathf.Clamp(
+                Mathf.RoundToInt(
+                    -bottomY * 100f
+                ),
+                -32000,
+                32000
+            );
+    }
+
+    // =========================================================
+    // 리벨 찾기
     // =========================================================
 
     private void FindRibel()
@@ -219,49 +388,120 @@ public class EnemyUnitBase : MonoBehaviour
         {
             ribel =
                 ribelObject.transform;
+
+            ribelHealth =
+                ribelObject.GetComponent<RibelHealth>();
+
+            if (ribelHealth == null)
+            {
+                ribelHealth =
+                    ribelObject
+                        .GetComponentInChildren<RibelHealth>();
+            }
+
+            ribelCollider =
+                FindNonTriggerCollider(
+                    ribelObject.transform
+                );
         }
     }
 
-    // =========================================================
-    // 초기 타깃
-    // =========================================================
-
-    private void SetInitialTarget()
+    private Collider2D FindNonTriggerCollider(
+        Transform root)
     {
-        if (targetType ==
-            TargetType.Escape)
+        if (root == null)
         {
-            currentTarget =
-                null;
-
-            return;
+            return null;
         }
 
-        if (targetType ==
-            TargetType.RibelOnly)
-        {
-            SetRibelAsTarget();
+        Collider2D collider =
+            root.GetComponent<Collider2D>();
 
-            return;
+        if (collider != null &&
+            !collider.isTrigger)
+        {
+            return collider;
         }
 
-        Transform preferred =
-            FindPreferredTarget();
+        Collider2D[] colliders =
+            root.GetComponentsInChildren<Collider2D>();
 
-        if (preferred != null)
+        for (int i = 0;
+             i < colliders.Length;
+             i++)
         {
-            currentTarget =
-                preferred;
+            if (colliders[i] != null &&
+                !colliders[i].isTrigger)
+            {
+                return colliders[i];
+            }
         }
-        else
-        {
-            SetRibelAsTarget();
-        }
+
+        return null;
     }
 
     // =========================================================
-    // 리벨 타깃
+    // 리벨 접촉 피해
     // =========================================================
+
+    private void UpdateContactDamage()
+    {
+        if (!useContactDamage ||
+            contactDamage <= 0f ||
+            bodyCollider == null ||
+            !bodyCollider.enabled)
+        {
+            return;
+        }
+
+        if (contactDamageTimer > 0f)
+        {
+            contactDamageTimer -=
+                Time.deltaTime;
+
+            if (contactDamageTimer < 0f)
+            {
+                contactDamageTimer =
+                    0f;
+            }
+        }
+
+        if (ribel == null ||
+            ribelHealth == null ||
+            ribelCollider == null)
+        {
+            FindRibel();
+        }
+
+        if (ribelHealth == null ||
+            ribelCollider == null ||
+            !ribelCollider.enabled ||
+            contactDamageTimer > 0f)
+        {
+            return;
+        }
+
+        ColliderDistance2D result =
+            bodyCollider.Distance(
+                ribelCollider
+            );
+
+        bool isTouching =
+            result.isOverlapped ||
+            result.distance <= 0.001f;
+
+        if (!isTouching)
+        {
+            return;
+        }
+
+        ribelHealth.TakeDamage(
+            contactDamage
+        );
+
+        contactDamageTimer =
+            contactDamageInterval;
+    }
 
     private void SetRibelAsTarget()
     {
@@ -297,13 +537,6 @@ public class EnemyUnitBase : MonoBehaviour
 
     private void ExitAttackMode()
     {
-        if (!isAttackMode)
-        {
-            UnlockAttackPosition();
-
-            return;
-        }
-
         isAttackMode =
             false;
 
@@ -311,7 +544,7 @@ public class EnemyUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // 공격 위치 고정
+    // 공격 중 위치 고정
     // =========================================================
 
     private void LockAttackPosition()
@@ -332,6 +565,13 @@ public class EnemyUnitBase : MonoBehaviour
             RigidbodyConstraints2D.FreezePositionX |
             RigidbodyConstraints2D.FreezePositionY |
             RigidbodyConstraints2D.FreezeRotation;
+
+        if (visualController != null)
+        {
+            visualController.SetMoving(
+                false
+            );
+        }
     }
 
     private void UnlockAttackPosition()
@@ -373,6 +613,13 @@ public class EnemyUnitBase : MonoBehaviour
                 0f;
 
             Die();
+
+            return;
+        }
+
+        if (visualController != null)
+        {
+            visualController.PlayHit();
         }
     }
 
@@ -396,9 +643,14 @@ public class EnemyUnitBase : MonoBehaviour
         currentTarget =
             null;
 
+        isAttacking =
+            false;
+
         ExitAttackMode();
 
         StopMovement();
+
+        DisableColliders();
 
         if (SummonManager.Instance != null)
         {
@@ -407,13 +659,44 @@ public class EnemyUnitBase : MonoBehaviour
             );
         }
 
+        if (visualController != null)
+        {
+            visualController.PlayDeath(
+                DestroyAfterDeath
+            );
+        }
+        else
+        {
+            DestroyAfterDeath();
+        }
+    }
+
+    private void DestroyAfterDeath()
+    {
         Destroy(
             gameObject
         );
     }
 
+    private void DisableColliders()
+    {
+        Collider2D[] colliders =
+            GetComponentsInChildren<Collider2D>();
+
+        for (int i = 0;
+             i < colliders.Length;
+             i++)
+        {
+            if (colliders[i] != null)
+            {
+                colliders[i].enabled =
+                    false;
+            }
+        }
+    }
+
     // =========================================================
-    // Collider 표면 거리
+    // 타깃까지의 실제 Collider 거리
     // =========================================================
 
     private float GetTargetDistance()
@@ -424,8 +707,7 @@ public class EnemyUnitBase : MonoBehaviour
         }
 
         Collider2D targetCollider =
-            currentTarget
-                .GetComponent<Collider2D>();
+            currentTarget.GetComponent<Collider2D>();
 
         if (targetCollider == null)
         {
@@ -457,15 +739,11 @@ public class EnemyUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // 타깃 관리
+    // 타깃 갱신
     // =========================================================
 
     private void UpdateTarget()
     {
-        // -----------------------------------------------------
-        // 도주형
-        // -----------------------------------------------------
-
         if (targetType ==
             TargetType.Escape)
         {
@@ -488,31 +766,18 @@ public class EnemyUnitBase : MonoBehaviour
         searchTimer =
             searchInterval;
 
-        // -----------------------------------------------------
-        // 리벨이 없는 경우 다시 찾기
-        // -----------------------------------------------------
-
-        if (ribel == null)
+        if (currentTarget == null ||
+            !currentTarget.gameObject.activeInHierarchy)
         {
-            FindRibel();
+            SetRibelAsTarget();
+
+            return;
         }
 
-        // -----------------------------------------------------
         // 공격 중에는 타깃 변경 금지
-        // -----------------------------------------------------
-
-        if (isAttackMode)
+        if (isAttackMode ||
+            isAttacking)
         {
-            if (currentTarget == null ||
-                !currentTarget.gameObject.activeInHierarchy)
-            {
-                ExitAttackMode();
-
-                SelectTargetAgain();
-
-                return;
-            }
-
             float centerDistance =
                 Vector2.Distance(
                     rb.position,
@@ -522,23 +787,22 @@ public class EnemyUnitBase : MonoBehaviour
             if (centerDistance >
                 disengageRange)
             {
+                isAttacking =
+                    false;
+
                 ExitAttackMode();
 
-                SelectTargetAgain();
+                SetRibelAsTarget();
             }
 
             return;
         }
 
-        // =====================================================
-        // 기본 적
-        // 리벨만 추적
-        // =====================================================
-
         if (targetType ==
             TargetType.RibelOnly)
         {
-            if (currentTarget != ribel)
+            if (currentTarget !=
+                ribel)
             {
                 SetRibelAsTarget();
             }
@@ -546,26 +810,16 @@ public class EnemyUnitBase : MonoBehaviour
             return;
         }
 
-        // =====================================================
-        // 특수 적
-        // =====================================================
-
-        if (currentTarget == null ||
-            !currentTarget.gameObject.activeInHierarchy)
-        {
-            SelectTargetAgain();
-
-            return;
-        }
-
         SummonUnitBase currentSummon =
-            FindSummonComponent(
-                currentTarget
-            );
+            currentTarget
+                .GetComponent<SummonUnitBase>();
 
-        // -----------------------------------------------------
-        // 이미 소환수를 잡았다면 유지
-        // -----------------------------------------------------
+        if (currentSummon == null)
+        {
+            currentSummon =
+                currentTarget
+                    .GetComponentInChildren<SummonUnitBase>();
+        }
 
         if (currentSummon != null)
         {
@@ -578,16 +832,11 @@ public class EnemyUnitBase : MonoBehaviour
             if (distance >
                 disengageRange)
             {
-                SelectTargetAgain();
+                SetRibelAsTarget();
             }
 
             return;
         }
-
-        // -----------------------------------------------------
-        // 현재 리벨을 보고 있지만
-        // 특수 타깃 조건에 맞는 소환수가 있으면 교체
-        // -----------------------------------------------------
 
         if (currentTarget ==
             ribel)
@@ -595,7 +844,8 @@ public class EnemyUnitBase : MonoBehaviour
             Transform preferredTarget =
                 FindPreferredTarget();
 
-            if (preferredTarget != null)
+            if (preferredTarget != null &&
+                preferredTarget != ribel)
             {
                 currentTarget =
                     preferredTarget;
@@ -606,79 +856,7 @@ public class EnemyUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // 타깃 재선택
-    // =========================================================
-
-    private void SelectTargetAgain()
-    {
-        if (targetType ==
-            TargetType.RibelOnly)
-        {
-            SetRibelAsTarget();
-
-            return;
-        }
-
-        Transform preferredTarget =
-            FindPreferredTarget();
-
-        if (preferredTarget != null)
-        {
-            currentTarget =
-                preferredTarget;
-
-            return;
-        }
-
-        // SummonOnly는 소환수가 없으면
-        // 리벨을 공격하지 않음
-        if (targetType ==
-            TargetType.SummonOnly)
-        {
-            currentTarget =
-                null;
-
-            return;
-        }
-
-        SetRibelAsTarget();
-    }
-
-    // =========================================================
-    // 현재 Transform이 소환수인지 확인
-    // =========================================================
-
-    private SummonUnitBase FindSummonComponent(
-        Transform targetTransform)
-    {
-        if (targetTransform == null)
-        {
-            return null;
-        }
-
-        SummonUnitBase summon =
-            targetTransform
-                .GetComponent<SummonUnitBase>();
-
-        if (summon == null)
-        {
-            summon =
-                targetTransform
-                    .GetComponentInChildren<SummonUnitBase>();
-        }
-
-        if (summon == null)
-        {
-            summon =
-                targetTransform
-                    .GetComponentInParent<SummonUnitBase>();
-        }
-
-        return summon;
-    }
-
-    // =========================================================
-    // 특수 타깃 선택
+    // 선호 타깃 찾기
     // =========================================================
 
     private Transform FindPreferredTarget()
@@ -739,8 +917,7 @@ public class EnemyUnitBase : MonoBehaviour
 
             float distance =
                 Vector2.SqrMagnitude(
-                    (Vector2)summon
-                        .transform.position -
+                    (Vector2)summon.transform.position -
                     rb.position
                 );
 
@@ -759,7 +936,7 @@ public class EnemyUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // 방어력 가장 높은 소환수
+    // 방어력이 가장 높은 소환수
     // =========================================================
 
     private Transform FindHighestDefenseSummon()
@@ -808,7 +985,7 @@ public class EnemyUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // 최대 HP 가장 높은 소환수
+    // 최대 체력이 가장 높은 소환수
     // =========================================================
 
     private Transform FindHighestMaxHealthSummon()
@@ -891,8 +1068,7 @@ public class EnemyUnitBase : MonoBehaviour
 
             float distance =
                 Vector2.SqrMagnitude(
-                    (Vector2)summon
-                        .transform.position -
+                    (Vector2)summon.transform.position -
                     rb.position
                 );
 
@@ -926,9 +1102,16 @@ public class EnemyUnitBase : MonoBehaviour
             return;
         }
 
+        if (isAttacking)
+        {
+            LockAttackPosition();
+
+            return;
+        }
+
         if (currentTarget == null)
         {
-            SelectTargetAgain();
+            SetRibelAsTarget();
 
             if (currentTarget == null)
             {
@@ -938,16 +1121,30 @@ public class EnemyUnitBase : MonoBehaviour
             }
         }
 
+        Vector2 toTarget =
+            (Vector2)currentTarget.position -
+            rb.position;
+
         float distance =
             GetTargetDistance();
 
         // =====================================================
-        // 이미 공격 모드
+        // 이미 공격 모드인 경우
         // =====================================================
 
         if (isAttackMode)
         {
             LockAttackPosition();
+
+            if (visualController != null &&
+                toTarget.sqrMagnitude >
+                0.0001f)
+            {
+                visualController
+                    .SetCombatFacingDirection(
+                        toTarget
+                    );
+            }
 
             if (distance <=
                 attackKeepRange)
@@ -961,7 +1158,7 @@ public class EnemyUnitBase : MonoBehaviour
         }
 
         // =====================================================
-        // 공격 시작
+        // 공격 시작 거리 진입
         // =====================================================
 
         if (distance <=
@@ -969,24 +1166,71 @@ public class EnemyUnitBase : MonoBehaviour
         {
             EnterAttackMode();
 
+            if (visualController != null &&
+                toTarget.sqrMagnitude >
+                0.0001f)
+            {
+                visualController
+                    .SetCombatFacingDirection(
+                        toTarget
+                    );
+            }
+
             TryAttack();
 
             return;
         }
 
         // =====================================================
-        // 타깃 쪽으로 이동
+        // 추적 이동
         // =====================================================
 
         UnlockAttackPosition();
 
-        Vector2 nextPosition =
-            Vector2.MoveTowards(
-                rb.position,
-                currentTarget.position,
-                moveSpeed *
-                Time.fixedDeltaTime
+        if (visualController != null &&
+            toTarget.sqrMagnitude >
+            0.0001f)
+        {
+            visualController.SetFacingDirection(
+                toTarget
             );
+
+            visualController.SetMoving(
+                true
+            );
+        }
+
+        float moveStep =
+            moveSpeed *
+            Time.fixedDeltaTime;
+
+        // Collider 표면 기준 공격 거리보다 안쪽으로
+        // 한 프레임에 지나쳐 들어가지 않도록 이동량 제한
+        float allowedMove =
+            Mathf.Max(
+                0f,
+                distance -
+                attackRange
+            );
+
+        moveStep =
+            Mathf.Min(
+                moveStep,
+                allowedMove
+            );
+
+        if (moveStep <= 0.0001f ||
+            toTarget.sqrMagnitude <= 0.0001f)
+        {
+            StopMovement();
+
+            return;
+        }
+
+        Vector2 nextPosition =
+            rb.position +
+            toTarget.normalized *
+            moveStep;
 
         rb.MovePosition(
             nextPosition
@@ -994,56 +1238,220 @@ public class EnemyUnitBase : MonoBehaviour
     }
 
     // =========================================================
-    // 공격
+    // 공격 시작
     // =========================================================
 
     private void TryAttack()
     {
         if (!isAttackMode ||
+            isAttacking ||
             attackTimer > 0f ||
             currentTarget == null)
         {
             return;
         }
 
+        Vector2 toTarget =
+            (Vector2)currentTarget.position -
+            rb.position;
+
+        // 공격 시작 시점의 방향을 저장
+        if (toTarget.sqrMagnitude >
+            0.0001f)
+        {
+            attackDirection =
+                toTarget.normalized;
+        }
+
+        if (visualController != null)
+        {
+            visualController
+                .SetCombatFacingDirection(
+                    attackDirection
+                );
+        }
+
         LockAttackPosition();
 
-        SummonUnitBase summon =
-            FindSummonComponent(
-                currentTarget
-            );
+        isAttacking =
+            true;
 
-        if (summon != null)
+        attackTimer =
+            attackInterval;
+
+        // 공격 애니메이션의 실제 타격 프레임에서
+        // ApplyAttackHitbox 호출
+        if (visualController != null)
         {
-            summon.TakeDamage(
-                attackDamage
+            visualController.PlayAttack(
+                ApplyAttackHitbox,
+                FinishAttack
+            );
+        }
+        else
+        {
+            ApplyAttackHitbox();
+
+            FinishAttack();
+        }
+    }
+
+    // =========================================================
+    // 실제 공격 히트박스 생성
+    // =========================================================
+
+    private void ApplyAttackHitbox()
+    {
+        if (isDead)
+        {
+            return;
+        }
+
+        if (attackDirection.sqrMagnitude <
+            0.0001f)
+        {
+            attackDirection =
+                Vector2.down;
+        }
+
+        Vector2 direction =
+            attackDirection.normalized;
+
+        // 적 중심에서 공격 방향 앞으로 이동
+        Vector2 hitboxCenter =
+            rb.position +
+            direction *
+            attackHitboxForwardOffset;
+
+        // 오른쪽 방향을 0도로 두고 회전
+        float hitboxAngle =
+            Mathf.Atan2(
+                direction.y,
+                direction.x
+            ) *
+            Mathf.Rad2Deg;
+
+        Collider2D[] hits =
+            Physics2D.OverlapBoxAll(
+                hitboxCenter,
+                attackHitboxSize,
+                hitboxAngle,
+                attackTargetMask
             );
 
-            attackTimer =
-                attackInterval;
+        // Collider가 여러 개인 캐릭터가
+        // 여러 번 피해 받는 것을 방지
+        HashSet<int> damagedSummons =
+            new HashSet<int>();
+
+        HashSet<int> damagedRibels =
+            new HashSet<int>();
+
+        for (int i = 0;
+             i < hits.Length;
+             i++)
+        {
+            Collider2D hit =
+                hits[i];
+
+            if (hit == null)
+            {
+                continue;
+            }
+
+            // 자기 자신 무시
+            if (hit.transform ==
+                    transform ||
+                hit.transform.IsChildOf(
+                    transform
+                ))
+            {
+                continue;
+            }
+
+            // =================================================
+            // 소환수 판정
+            // =================================================
+
+            SummonUnitBase summon =
+                hit.GetComponentInParent<SummonUnitBase>();
+
+            if (summon != null &&
+                !summon.IsDead)
+            {
+                int id =
+                    summon.GetInstanceID();
+
+                if (!damagedSummons.Contains(
+                        id))
+                {
+                    damagedSummons.Add(
+                        id
+                    );
+
+                    summon.TakeDamage(
+                        attackDamage
+                    );
+                }
+
+                continue;
+            }
+
+            // =================================================
+            // 리벨 판정
+            // =================================================
+
+            RibelHealth ribelHealth =
+                hit.GetComponentInParent<RibelHealth>();
+
+            if (ribelHealth != null)
+            {
+                int id =
+                    ribelHealth.GetInstanceID();
+
+                if (!damagedRibels.Contains(
+                        id))
+                {
+                    damagedRibels.Add(
+                        id
+                    );
+
+                    ribelHealth.TakeDamage(
+                        attackDamage
+                    );
+                }
+            }
+        }
+    }
+
+    // =========================================================
+    // 공격 종료
+    // =========================================================
+
+    private void FinishAttack()
+    {
+        if (isDead)
+        {
+            return;
+        }
+
+        isAttacking =
+            false;
+
+        if (currentTarget == null ||
+            !currentTarget.gameObject.activeInHierarchy)
+        {
+            ExitAttackMode();
+
+            SetRibelAsTarget();
 
             return;
         }
 
-        RibelHealth health =
-            currentTarget
-                .GetComponent<RibelHealth>();
-
-        if (health == null)
+        if (GetTargetDistance() >
+            attackKeepRange)
         {
-            health =
-                currentTarget
-                    .GetComponentInChildren<RibelHealth>();
-        }
-
-        if (health != null)
-        {
-            health.TakeDamage(
-                attackDamage
-            );
-
-            attackTimer =
-                attackInterval;
+            ExitAttackMode();
         }
     }
 
@@ -1058,16 +1466,16 @@ public class EnemyUnitBase : MonoBehaviour
             attackTimer -=
                 Time.deltaTime;
 
-            if (attackTimer < 0f)
-            {
-                attackTimer =
-                    0f;
-            }
+            attackTimer =
+                Mathf.Max(
+                    0f,
+                    attackTimer
+                );
         }
     }
 
     // =========================================================
-    // 정지
+    // 이동 정지
     // =========================================================
 
     private void StopMovement()
@@ -1082,9 +1490,164 @@ public class EnemyUnitBase : MonoBehaviour
 
         rb.angularVelocity =
             0f;
+
+        if (visualController != null)
+        {
+            visualController.SetMoving(
+                false
+            );
+        }
+    }
+
+    // =========================================================
+    // Scene 뷰 디버그
+    // =========================================================
+
+    private void OnDrawGizmos()
+    {
+        if (!alwaysShowAttackHitbox)
+        {
+            return;
+        }
+
+        DrawDebugGizmos();
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        if (alwaysShowAttackHitbox)
+        {
+            return;
+        }
+
+        DrawDebugGizmos();
+    }
+
+    // =========================================================
+    // 디버그 범위 그리기
+    // =========================================================
+
+    private void DrawDebugGizmos()
+    {
+        // =====================================================
+        // 실제 공격 히트박스
+        // =====================================================
+
+        if (showAttackHitbox)
+        {
+            DrawAttackHitboxGizmo();
+        }
+
+        // =====================================================
+        // 공격 시작 거리
+        // =====================================================
+
+        if (showAttackStartRange)
+        {
+            Gizmos.color =
+                new Color(
+                    1f,
+                    0.7f,
+                    0.1f,
+                    0.8f
+                );
+
+            Gizmos.DrawWireSphere(
+                transform.position,
+                attackRange
+            );
+        }
+
+        // =====================================================
+        // 탐지 범위
+        // =====================================================
+
+        if (showDetectionRange)
+        {
+            Gizmos.color =
+                new Color(
+                    0.2f,
+                    0.7f,
+                    1f,
+                    0.5f
+                );
+
+            Gizmos.DrawWireSphere(
+                transform.position,
+                detectionRange
+            );
+        }
+    }
+
+    // =========================================================
+    // 실제 공격 히트박스 Gizmo
+    // =========================================================
+
+    private void DrawAttackHitboxGizmo()
+    {
+        Vector2 direction =
+            attackDirection;
+
+        // 플레이하지 않을 때는
+        // 기본적으로 오른쪽 공격 방향으로 미리보기
+        if (!Application.isPlaying ||
+            direction.sqrMagnitude <
+            0.0001f)
+        {
+            direction =
+                Vector2.right;
+        }
+
+        direction.Normalize();
+
+        Vector2 center =
+            (Vector2)transform.position +
+            direction *
+            attackHitboxForwardOffset;
+
+        float angle =
+            Mathf.Atan2(
+                direction.y,
+                direction.x
+            ) *
+            Mathf.Rad2Deg;
+
+        Matrix4x4 previousMatrix =
+            Gizmos.matrix;
+
+        Gizmos.color =
+            new Color(
+                1f,
+                0.15f,
+                0.15f,
+                0.9f
+            );
+
+        Gizmos.matrix =
+            Matrix4x4.TRS(
+                center,
+                Quaternion.Euler(
+                    0f,
+                    0f,
+                    angle
+                ),
+                Vector3.one
+            );
+
+        Gizmos.DrawWireCube(
+            Vector3.zero,
+            attackHitboxSize
+        );
+
+        Gizmos.matrix =
+            previousMatrix;
     }
 
 #if UNITY_EDITOR
+
+    // =========================================================
+    // Inspector 값 보호
+    // =========================================================
 
     private void OnValidate()
     {
@@ -1128,6 +1691,36 @@ public class EnemyUnitBase : MonoBehaviour
             Mathf.Max(
                 0.05f,
                 attackInterval
+            );
+
+        contactDamage =
+            Mathf.Max(
+                0f,
+                contactDamage
+            );
+
+        contactDamageInterval =
+            Mathf.Max(
+                0.05f,
+                contactDamageInterval
+            );
+
+        attackHitboxSize.x =
+            Mathf.Max(
+                0.01f,
+                attackHitboxSize.x
+            );
+
+        attackHitboxSize.y =
+            Mathf.Max(
+                0.01f,
+                attackHitboxSize.y
+            );
+
+        attackHitboxForwardOffset =
+            Mathf.Max(
+                0f,
+                attackHitboxForwardOffset
             );
 
         detectionRange =

@@ -152,13 +152,15 @@ public class SummonVisualController : MonoBehaviour
     [Tooltip(
         "3방향: Down → Right → Up\n" +
         "5방향: Down → DownRight → Right → UpRight → Up\n" +
-        "피격 순간 화면에 실제로 보이던 방향을 고정한 뒤 1회만 재생합니다.\n" +
-        "방향당 1장이라면 Hit Columns = 1로 두세요."
+        "왼쪽 계열은 오른쪽 계열 스프라이트를 자동으로 좌우 반전합니다."
     )]
     [SerializeField]
     private Sprite[] hitFrames;
 
-    [Tooltip("방향 하나당 피격 프레임 수")]
+    [Tooltip(
+        "방향 하나당 피격 프레임 수입니다.\n" +
+        "방향별 피격 이미지가 1장씩이면 1로 설정합니다."
+    )]
     [Min(1)]
     [SerializeField]
     private int hitColumns = 1;
@@ -215,6 +217,101 @@ public class SummonVisualController : MonoBehaviour
     private float hitFlashDuration = 0.09f;
 
     // =========================================================
+    // 피격 먼지
+    // =========================================================
+
+    [Header("피격 먼지")]
+    [Tooltip("FX001_01 → FX001_05 순서로 넣습니다.")]
+    [SerializeField]
+    private Sprite[] hitDustFrames;
+
+    [Tooltip("먼지 애니메이션 초당 프레임 수")]
+    [Min(0.1f)]
+    [SerializeField]
+    private float hitDustFrameRate = 14f;
+
+    [Tooltip("소환수 중심에서 먼지가 생길 위치입니다. 발밑이면 Y를 음수로 둡니다.")]
+    [SerializeField]
+    private Vector2 hitDustOffset =
+        new Vector2(0f, -0.18f);
+
+    [Tooltip("먼지 이미지 크기 배율")]
+    [Min(0.01f)]
+    [SerializeField]
+    private float hitDustScale = 1f;
+
+    [Tooltip("본체보다 몇 Sorting Order 아래에 그릴지 설정합니다.")]
+    [SerializeField]
+    private int hitDustSortingOffset = -1;
+
+    // =========================================================
+    // 능력치 상승 피드백
+    // =========================================================
+
+    [Header("능력치 상승 피드백")]
+    [Tooltip("강화계약으로 소환수 능력치가 실제로 증가했을 때 재생합니다.")]
+    [SerializeField]
+    private bool useStatUpEffect = true;
+
+    [Tooltip("몸이 잠깐 빛나는 시간")]
+    [Min(0.05f)]
+    [SerializeField]
+    private float statUpDuration = 0.55f;
+
+    [Tooltip("능력치 상승 순간 몸에 섞이는 밝은 색")]
+    [SerializeField]
+    private Color statUpFlashColor =
+        new Color(
+            1f,
+            0.88f,
+            0.45f,
+            1f
+        );
+
+    [Tooltip("몸 주변에 나타나는 빛의 색")]
+    [SerializeField]
+    private Color statUpGlowColor =
+        new Color(
+            0.75f,
+            0.5f,
+            1f,
+            0.42f
+        );
+
+    [Tooltip("몸 주변 빛의 크기")]
+    [Min(0.05f)]
+    [SerializeField]
+    private float statUpGlowScale = 0.9f;
+
+    [Tooltip("상승 화살표 색")]
+    [SerializeField]
+    private Color statUpArrowColor =
+        new Color(
+            0.9f,
+            0.72f,
+            1f,
+            1f
+        );
+
+    [Tooltip("상승 화살표 시작 위치")]
+    [SerializeField]
+    private Vector2 statUpArrowOffset =
+        new Vector2(
+            0f,
+            0.35f
+        );
+
+    [Tooltip("상승 화살표가 올라가는 거리")]
+    [Min(0.05f)]
+    [SerializeField]
+    private float statUpArrowRiseDistance = 0.42f;
+
+    [Tooltip("상승 화살표 크기")]
+    [Min(0.05f)]
+    [SerializeField]
+    private float statUpArrowScale = 0.42f;
+
+    // =========================================================
     // 소환 등장
     // =========================================================
 
@@ -247,12 +344,6 @@ public class SummonVisualController : MonoBehaviour
         FacingType.Down;
 
     private FacingType lockedActionFacing =
-        FacingType.Down;
-
-    // 실제 화면에 마지막으로 그려진 방향.
-    // 피격 시 currentFacing이 아니라 이 값을 사용해야
-    // "맞기 직전 보고 있던 방향"을 정확히 유지할 수 있습니다.
-    private FacingType displayedFacing =
         FacingType.Down;
 
     private bool isMoving;
@@ -309,6 +400,12 @@ public class SummonVisualController : MonoBehaviour
     private Coroutine deathSequenceCoroutine;
 
     private Coroutine attackBodyCoroutine;
+
+    private Coroutine statUpEffectCoroutine;
+
+    private static Sprite cachedStatUpArrowSprite;
+
+    private static Sprite cachedStatUpGlowSprite;
 
     // =========================================================
     // Property
@@ -1342,6 +1439,532 @@ public class SummonVisualController : MonoBehaviour
     }
 
     // =========================================================
+    // 능력치 상승 피드백
+    // =========================================================
+
+    public void PlayStatUpEffect()
+    {
+        if (!useStatUpEffect ||
+            isDead ||
+            isSummonAppearing ||
+            spriteRenderer == null)
+        {
+            return;
+        }
+
+        if (statUpEffectCoroutine != null)
+        {
+            StopCoroutine(
+                statUpEffectCoroutine
+            );
+
+            statUpEffectCoroutine =
+                null;
+        }
+
+        statUpEffectCoroutine =
+            StartCoroutine(
+                StatUpEffectRoutine()
+            );
+    }
+
+    private IEnumerator StatUpEffectRoutine()
+    {
+        GameObject glowObject =
+            CreateStatUpGlow();
+
+        GameObject[] arrows =
+            CreateStatUpArrows();
+
+        float duration =
+            Mathf.Max(
+                0.05f,
+                statUpDuration
+            );
+
+        float timer =
+            0f;
+
+        Color startColor =
+            spriteRenderer.color;
+
+        Vector3 glowBaseScale =
+            glowObject != null
+                ? glowObject.transform.localScale
+                : Vector3.one;
+
+        Vector3[] arrowStartPositions =
+            new Vector3[
+                arrows.Length
+            ];
+
+        SpriteRenderer[] arrowRenderers =
+            new SpriteRenderer[
+                arrows.Length
+            ];
+
+        for (int i = 0;
+             i < arrows.Length;
+             i++)
+        {
+            if (arrows[i] == null)
+            {
+                continue;
+            }
+
+            arrowStartPositions[i] =
+                arrows[i].transform.position;
+
+            arrowRenderers[i] =
+                arrows[i]
+                    .GetComponent<SpriteRenderer>();
+        }
+
+        while (timer <
+               duration)
+        {
+            timer +=
+                Time.deltaTime;
+
+            float t =
+                Mathf.Clamp01(
+                    timer /
+                    duration
+                );
+
+            float pulse =
+                Mathf.Sin(
+                    t *
+                    Mathf.PI
+                );
+
+            // 몸이 짧게 밝아졌다가 원래 색으로 돌아옵니다.
+            Color bodyColor =
+                Color.Lerp(
+                    startColor,
+                    statUpFlashColor,
+                    pulse * 0.75f
+                );
+
+            bodyColor.a =
+                startColor.a;
+
+            spriteRenderer.color =
+                bodyColor;
+
+            if (glowObject != null)
+            {
+                float glowPulse =
+                    0.9f +
+                    pulse * 0.25f;
+
+                glowObject.transform.localScale =
+                    glowBaseScale *
+                    glowPulse;
+
+                SpriteRenderer glowRenderer =
+                    glowObject
+                        .GetComponent<SpriteRenderer>();
+
+                if (glowRenderer != null)
+                {
+                    Color glowColor =
+                        statUpGlowColor;
+
+                    glowColor.a *=
+                        Mathf.Sin(
+                            Mathf.PI *
+                            Mathf.Clamp01(t)
+                        );
+
+                    glowRenderer.color =
+                        glowColor;
+                }
+            }
+
+            for (int i = 0;
+                 i < arrows.Length;
+                 i++)
+            {
+                if (arrows[i] == null)
+                {
+                    continue;
+                }
+
+                float delay =
+                    i * 0.12f;
+
+                float arrowT =
+                    Mathf.Clamp01(
+                        (t - delay) /
+                        Mathf.Max(
+                            0.01f,
+                            1f - delay
+                        )
+                    );
+
+                Vector3 position =
+                    arrowStartPositions[i];
+
+                position.y +=
+                    statUpArrowRiseDistance *
+                    arrowT;
+
+                arrows[i].transform.position =
+                    position;
+
+                if (arrowRenderers[i] != null)
+                {
+                    Color arrowColor =
+                        statUpArrowColor;
+
+                    arrowColor.a *=
+                        1f - arrowT;
+
+                    arrowRenderers[i].color =
+                        arrowColor;
+                }
+            }
+
+            yield return null;
+        }
+
+        if (!isDead &&
+            spriteRenderer != null)
+        {
+            spriteRenderer.color =
+                originalColor;
+        }
+
+        if (glowObject != null)
+        {
+            Destroy(
+                glowObject
+            );
+        }
+
+        for (int i = 0;
+             i < arrows.Length;
+             i++)
+        {
+            if (arrows[i] != null)
+            {
+                Destroy(
+                    arrows[i]
+                );
+            }
+        }
+
+        statUpEffectCoroutine =
+            null;
+    }
+
+    private GameObject CreateStatUpGlow()
+    {
+        if (spriteRenderer == null)
+        {
+            return null;
+        }
+
+        EnsureStatUpSprites();
+
+        GameObject glowObject =
+            new GameObject(
+                "StatUpGlow"
+            );
+
+        glowObject.transform.SetParent(
+            spriteRenderer.transform,
+            false
+        );
+
+        glowObject.transform.localPosition =
+            Vector3.zero;
+
+        glowObject.transform.localScale =
+            Vector3.one *
+            statUpGlowScale;
+
+        SpriteRenderer glowRenderer =
+            glowObject.AddComponent<SpriteRenderer>();
+
+        glowRenderer.sprite =
+            cachedStatUpGlowSprite;
+
+        glowRenderer.color =
+            statUpGlowColor;
+
+        glowRenderer.sortingLayerID =
+            spriteRenderer.sortingLayerID;
+
+        glowRenderer.sortingOrder =
+            spriteRenderer.sortingOrder -
+            1;
+
+        return glowObject;
+    }
+
+    private GameObject[] CreateStatUpArrows()
+    {
+        EnsureStatUpSprites();
+
+        GameObject[] arrows =
+            new GameObject[3];
+
+        float[] xOffsets =
+        {
+            -0.16f,
+            0f,
+            0.16f
+        };
+
+        for (int i = 0;
+             i < arrows.Length;
+             i++)
+        {
+            GameObject arrow =
+                new GameObject(
+                    "StatUpArrow"
+                );
+
+            arrow.transform.position =
+                transform.position +
+                (Vector3)statUpArrowOffset +
+                Vector3.right *
+                xOffsets[i];
+
+            arrow.transform.localScale =
+                Vector3.one *
+                statUpArrowScale;
+
+            SpriteRenderer arrowRenderer =
+                arrow.AddComponent<SpriteRenderer>();
+
+            arrowRenderer.sprite =
+                cachedStatUpArrowSprite;
+
+            arrowRenderer.color =
+                statUpArrowColor;
+
+            arrowRenderer.sortingLayerID =
+                spriteRenderer.sortingLayerID;
+
+            arrowRenderer.sortingOrder =
+                spriteRenderer.sortingOrder +
+                2;
+
+            arrows[i] =
+                arrow;
+
+            Destroy(
+                arrow,
+                Mathf.Max(
+                    0.1f,
+                    statUpDuration
+                ) +
+                0.25f
+            );
+        }
+
+        return arrows;
+    }
+
+    private static void EnsureStatUpSprites()
+    {
+        if (cachedStatUpArrowSprite == null)
+        {
+            cachedStatUpArrowSprite =
+                CreatePixelArrowSprite();
+        }
+
+        if (cachedStatUpGlowSprite == null)
+        {
+            cachedStatUpGlowSprite =
+                CreatePixelGlowSprite();
+        }
+    }
+
+    private static Sprite CreatePixelArrowSprite()
+    {
+        const int width = 7;
+        const int height = 9;
+
+        Texture2D texture =
+            new Texture2D(
+                width,
+                height,
+                TextureFormat.RGBA32,
+                false
+            );
+
+        texture.filterMode =
+            FilterMode.Point;
+
+        texture.wrapMode =
+            TextureWrapMode.Clamp;
+
+        Color clear =
+            new Color(
+                1f,
+                1f,
+                1f,
+                0f
+            );
+
+        Color solid =
+            Color.white;
+
+        for (int y = 0;
+             y < height;
+             y++)
+        {
+            for (int x = 0;
+                 x < width;
+                 x++)
+            {
+                texture.SetPixel(
+                    x,
+                    y,
+                    clear
+                );
+            }
+        }
+
+        // 7x9 픽셀 화살표
+        int[,] pixels =
+        {
+            { 3, 8 },
+            { 2, 7 }, { 3, 7 }, { 4, 7 },
+            { 1, 6 }, { 2, 6 }, { 3, 6 }, { 4, 6 }, { 5, 6 },
+            { 0, 5 }, { 1, 5 }, { 2, 5 }, { 3, 5 }, { 4, 5 }, { 5, 5 }, { 6, 5 },
+            { 2, 4 }, { 3, 4 }, { 4, 4 },
+            { 2, 3 }, { 3, 3 }, { 4, 3 },
+            { 2, 2 }, { 3, 2 }, { 4, 2 },
+            { 2, 1 }, { 3, 1 }, { 4, 1 },
+            { 2, 0 }, { 3, 0 }, { 4, 0 }
+        };
+
+        for (int i = 0;
+             i < pixels.GetLength(0);
+             i++)
+        {
+            texture.SetPixel(
+                pixels[i, 0],
+                pixels[i, 1],
+                solid
+            );
+        }
+
+        texture.Apply();
+
+        return Sprite.Create(
+            texture,
+            new Rect(
+                0f,
+                0f,
+                width,
+                height
+            ),
+            new Vector2(
+                0.5f,
+                0.5f
+            ),
+            16f
+        );
+    }
+
+    private static Sprite CreatePixelGlowSprite()
+    {
+        const int size = 16;
+
+        Texture2D texture =
+            new Texture2D(
+                size,
+                size,
+                TextureFormat.RGBA32,
+                false
+            );
+
+        texture.filterMode =
+            FilterMode.Point;
+
+        texture.wrapMode =
+            TextureWrapMode.Clamp;
+
+        Vector2 center =
+            new Vector2(
+                (size - 1) * 0.5f,
+                (size - 1) * 0.5f
+            );
+
+        for (int y = 0;
+             y < size;
+             y++)
+        {
+            for (int x = 0;
+                 x < size;
+                 x++)
+            {
+                float distance =
+                    Vector2.Distance(
+                        new Vector2(
+                            x,
+                            y
+                        ),
+                        center
+                    );
+
+                float alpha;
+
+                if (distance <= 4f)
+                {
+                    alpha = 0.65f;
+                }
+                else if (distance <= 5.5f)
+                {
+                    alpha = 0.38f;
+                }
+                else if (distance <= 7f)
+                {
+                    alpha = 0.16f;
+                }
+                else
+                {
+                    alpha = 0f;
+                }
+
+                texture.SetPixel(
+                    x,
+                    y,
+                    new Color(
+                        1f,
+                        1f,
+                        1f,
+                        alpha
+                    )
+                );
+            }
+        }
+
+        texture.Apply();
+
+        return Sprite.Create(
+            texture,
+            new Rect(
+                0f,
+                0f,
+                size,
+                size
+            ),
+            new Vector2(
+                0.5f,
+                0.5f
+            ),
+            16f
+        );
+    }
+
+    // =========================================================
     // 피격
     // =========================================================
 
@@ -1354,6 +1977,7 @@ public class SummonVisualController : MonoBehaviour
         }
 
         PlayHitFlash();
+        PlayHitDust();
 
         if (currentMotion ==
             MotionType.Attack)
@@ -1368,7 +1992,7 @@ public class SummonVisualController : MonoBehaviour
         }
 
         lockedActionFacing =
-            displayedFacing;
+            currentFacing;
 
         actionLocked =
             true;
@@ -1383,6 +2007,96 @@ public class SummonVisualController : MonoBehaviour
             0f;
 
         UpdateCurrentSprite();
+    }
+
+    private void PlayHitDust()
+    {
+        if (hitDustFrames == null ||
+            hitDustFrames.Length == 0 ||
+            spriteRenderer == null)
+        {
+            return;
+        }
+
+        StartCoroutine(
+            HitDustRoutine()
+        );
+    }
+
+    private IEnumerator HitDustRoutine()
+    {
+        GameObject dustObject =
+            new GameObject(
+                "HitDust"
+            );
+
+        dustObject.transform.position =
+            transform.position +
+            (Vector3)hitDustOffset;
+
+        dustObject.transform.localScale =
+            Vector3.one *
+            hitDustScale;
+
+        SpriteRenderer dustRenderer =
+            dustObject.AddComponent<SpriteRenderer>();
+
+        dustRenderer.sortingLayerID =
+            spriteRenderer.sortingLayerID;
+
+        dustRenderer.sortingOrder =
+            spriteRenderer.sortingOrder +
+            hitDustSortingOffset;
+
+        dustRenderer.flipX =
+            false;
+
+        float frameDuration =
+            1f /
+            Mathf.Max(
+                0.1f,
+                hitDustFrameRate
+            );
+
+        // 이 컨트롤러가 도중에 파괴돼 코루틴이 멈춰도
+        // 먼지 오브젝트가 씬에 남지 않도록 안전 삭제를 예약합니다.
+        Destroy(
+            dustObject,
+            frameDuration *
+            hitDustFrames.Length +
+            0.25f
+        );
+
+        for (int i = 0;
+             i < hitDustFrames.Length;
+             i++)
+        {
+            if (dustRenderer == null)
+            {
+                yield break;
+            }
+
+            Sprite frame =
+                hitDustFrames[i];
+
+            if (frame != null)
+            {
+                dustRenderer.sprite =
+                    frame;
+            }
+
+            yield return
+                new WaitForSeconds(
+                    frameDuration
+                );
+        }
+
+        if (dustObject != null)
+        {
+            Destroy(
+                dustObject
+            );
+        }
     }
 
     private void PlayHitFlash()
@@ -1532,6 +2246,16 @@ public class SummonVisualController : MonoBehaviour
 
             attackBodyMotionRunning =
                 false;
+        }
+
+        if (statUpEffectCoroutine != null)
+        {
+            StopCoroutine(
+                statUpEffectCoroutine
+            );
+
+            statUpEffectCoroutine =
+                null;
         }
 
         if (spriteRenderer != null)
@@ -1926,9 +2650,6 @@ public class SummonVisualController : MonoBehaviour
         actionLocked =
             false;
 
-        currentFacing =
-            lockedActionFacing;
-
         if (movementType ==
             SummonMovementType.Ground &&
             isMoving)
@@ -2215,9 +2936,6 @@ public class SummonVisualController : MonoBehaviour
 
         spriteRenderer.sprite =
             frames[index];
-
-        displayedFacing =
-            facing;
     }
 
     // =========================================================
@@ -2387,6 +3105,18 @@ public class SummonVisualController : MonoBehaviour
             Mathf.Max(
                 1,
                 hitColumns
+            );
+
+        hitDustFrameRate =
+            Mathf.Max(
+                0.1f,
+                hitDustFrameRate
+            );
+
+        hitDustScale =
+            Mathf.Max(
+                0.01f,
+                hitDustScale
             );
 
         deathColumns =

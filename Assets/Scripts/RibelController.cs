@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Serialization;
 
@@ -6,14 +6,14 @@ using UnityEngine.Serialization;
 [RequireComponent(typeof(Rigidbody2D))]
 public class RibelController : MonoBehaviour
 {
-    [Header("ÀÌµ¿ ¼³Á¤")]
+    [Header("ì´ë™ ì„¤ì •")]
     [SerializeField]
     private float moveSpeed = 4.2f;
 
     [SerializeField]
     private float stopDistance = 0.02f;
 
-    [Header("IDLE ¸ğ¼Ç")]
+    [Header("IDLE ëª¨ì…˜")]
     [FormerlySerializedAs("idleFrames")]
     [SerializeField]
     private Sprite[] spriteFrames;
@@ -24,7 +24,7 @@ public class RibelController : MonoBehaviour
     [SerializeField]
     private float idleFrameRate = 8f;
 
-    [Header("WALK ¸ğ¼Ç")]
+    [Header("WALK ëª¨ì…˜")]
     [SerializeField]
     private Sprite[] walkFrames;
 
@@ -34,7 +34,7 @@ public class RibelController : MonoBehaviour
     [SerializeField]
     private float walkFrameRate = 8f;
 
-    [Header("SUMMON ¸ğ¼Ç")]
+    [Header("SUMMON ëª¨ì…˜")]
     [SerializeField]
     private Sprite[] summonFrames;
 
@@ -44,7 +44,7 @@ public class RibelController : MonoBehaviour
     [SerializeField]
     private float summonFrameRate = 8f;
 
-    [Header("HIT ¸ğ¼Ç")]
+    [Header("HIT ëª¨ì…˜")]
     [SerializeField]
     private Sprite[] hitFrames;
 
@@ -54,15 +54,15 @@ public class RibelController : MonoBehaviour
     [SerializeField]
     private float hitFrameRate = 10f;
 
-    [Header("DEATH ¸ğ¼Ç")]
-    [Tooltip("¹æÇâ°ú °ü°è¾øÀÌ »ç¿ëÇÏ´Â ´ÜÀÏ »ç¸Á ¸ğ¼Ç")]
+    [Header("DEATH ëª¨ì…˜")]
+    [Tooltip("ë°©í–¥ê³¼ ê´€ê³„ì—†ì´ ì‚¬ìš©í•˜ëŠ” ë‹¨ì¼ ì‚¬ë§ ëª¨ì…˜")]
     [SerializeField]
     private Sprite[] deathFrames;
 
     [SerializeField]
     private float deathFrameRate = 8f;
 
-    [Header("Å¬¸¯ ÀÌµ¿ ÀÌÆåÆ®")]
+    [Header("í´ë¦­ ì´ë™ ì´í™íŠ¸")]
     [SerializeField]
     private GameObject clickMoveEffectPrefab;
 
@@ -77,6 +77,8 @@ public class RibelController : MonoBehaviour
     private SpriteRenderer spriteRenderer;
 
     private Rigidbody2D rb;
+
+    private Collider2D bodyCollider;
 
     private Camera mainCamera;
 
@@ -135,6 +137,32 @@ public class RibelController : MonoBehaviour
         rb =
             GetComponent<Rigidbody2D>();
 
+        bodyCollider =
+            GetComponent<Collider2D>();
+
+        if (bodyCollider == null ||
+            bodyCollider.isTrigger)
+        {
+            Collider2D[] colliders =
+                GetComponentsInChildren<Collider2D>();
+
+            bodyCollider = null;
+
+            for (int i = 0;
+                 i < colliders.Length;
+                 i++)
+            {
+                if (colliders[i] != null &&
+                    !colliders[i].isTrigger)
+                {
+                    bodyCollider =
+                        colliders[i];
+
+                    break;
+                }
+            }
+        }
+
         mainCamera =
             Camera.main;
 
@@ -174,8 +202,39 @@ public class RibelController : MonoBehaviour
         }
     }
 
+    private void LateUpdate()
+    {
+        UpdateYSorting();
+    }
+
     // =========================================================
-    // ÀÚµ¿ ¸ğ¼Ç
+    // Collider ë°”ë‹¥ ê¸°ì¤€ ì•ë’¤ ì •ë ¬
+    // =========================================================
+
+    private void UpdateYSorting()
+    {
+        if (spriteRenderer == null ||
+            bodyCollider == null ||
+            !bodyCollider.enabled)
+        {
+            return;
+        }
+
+        float bottomY =
+            bodyCollider.bounds.min.y;
+
+        spriteRenderer.sortingOrder =
+            Mathf.Clamp(
+                Mathf.RoundToInt(
+                    -bottomY * 100f
+                ),
+                -32000,
+                32000
+            );
+    }
+
+    // =========================================================
+    // ìë™ ëª¨ì…˜
     // =========================================================
 
     private void UpdateAutomaticMotion()
@@ -201,7 +260,7 @@ public class RibelController : MonoBehaviour
     }
 
     // =========================================================
-    // ÁÂÅ¬¸¯ ÀÌµ¿
+    // ì¢Œí´ë¦­ ì´ë™
     // =========================================================
 
     private void HandleMouseInput()
@@ -212,13 +271,13 @@ public class RibelController : MonoBehaviour
         }
 
         // =====================================================
-        // 1. ¼ÒÈ¯ ¹èÄ¡ ¸ğµå
+        // 1. ì†Œí™˜ ë°°ì¹˜ ëª¨ë“œ
         //
-        // °¡´ÉÇÑ À§Ä¡¸¦ ´­·¯µµ,
-        // ºÒ°¡´ÉÇÑ À§Ä¡¸¦ ´­·¯µµ
-        // ¸®º§ ÀÌµ¿¿¡´Â Àı´ë »ç¿ëÇÏÁö ¾Ê´Â´Ù.
+        // ê°€ëŠ¥í•œ ìœ„ì¹˜ë¥¼ ëˆŒëŸ¬ë„,
+        // ë¶ˆê°€ëŠ¥í•œ ìœ„ì¹˜ë¥¼ ëˆŒëŸ¬ë„
+        // ë¦¬ë²¨ ì´ë™ì—ëŠ” ì ˆëŒ€ ì‚¬ìš©í•˜ì§€ ì•ŠëŠ”ë‹¤.
         //
-        // ÇÁ·¹ÀÓ ½ÇÇà ¼ø¼­¿Í ¹«°üÇÏ°Ô µ¿ÀÛÇÑ´Ù.
+        // í”„ë ˆì„ ì‹¤í–‰ ìˆœì„œì™€ ë¬´ê´€í•˜ê²Œ ë™ì‘í•œë‹¤.
         // =====================================================
 
         if (SummonManager.Instance != null &&
@@ -228,10 +287,10 @@ public class RibelController : MonoBehaviour
         }
 
         // =====================================================
-        // 2. Q + ÁÂÅ¬¸¯ = À§Ä¡ Áı°á
+        // 2. Q + ì¢Œí´ë¦­ = ìœ„ì¹˜ ì§‘ê²°
         //
-        // Q¸¦ ´©¸¥ Ã¤ Å¬¸¯ÇÏ´Â µ¿¾È
-        // ±× Å¬¸¯À¸·Î ¸®º§Àº ÀÌµ¿ÇÏÁö ¾Ê´Â´Ù.
+        // Që¥¼ ëˆ„ë¥¸ ì±„ í´ë¦­í•˜ëŠ” ë™ì•ˆ
+        // ê·¸ í´ë¦­ìœ¼ë¡œ ë¦¬ë²¨ì€ ì´ë™í•˜ì§€ ì•ŠëŠ”ë‹¤.
         // =====================================================
 
         if (Input.GetKey(KeyCode.Q))
@@ -240,7 +299,7 @@ public class RibelController : MonoBehaviour
         }
 
         // =====================================================
-        // ±âÁ¸ ÇÑ ÇÁ·¹ÀÓ Â÷´Ü°ªµµ È£È¯¿ëÀ¸·Î À¯Áö
+        // ê¸°ì¡´ í•œ í”„ë ˆì„ ì°¨ë‹¨ê°’ë„ í˜¸í™˜ìš©ìœ¼ë¡œ ìœ ì§€
         // =====================================================
 
         if (SummonManager.Instance != null &&
@@ -250,7 +309,7 @@ public class RibelController : MonoBehaviour
         }
 
         // =====================================================
-        // UI À§ Å¬¸¯
+        // UI ìœ„ í´ë¦­
         // =====================================================
 
         if (EventSystem.current != null &&
@@ -260,7 +319,7 @@ public class RibelController : MonoBehaviour
         }
 
         // =====================================================
-        // Ä«¸Ş¶ó
+        // ì¹´ë©”ë¼
         // =====================================================
 
         if (mainCamera == null)
@@ -275,7 +334,7 @@ public class RibelController : MonoBehaviour
         }
 
         // =====================================================
-        // Á¤»óÀûÀÎ ÀÏ¹İ ÀÌµ¿ Å¬¸¯
+        // ì •ìƒì ì¸ ì¼ë°˜ ì´ë™ í´ë¦­
         // =====================================================
 
         Vector3 mouseWorld =
@@ -301,7 +360,7 @@ public class RibelController : MonoBehaviour
     }
 
     // =========================================================
-    // Å¬¸¯ ÀÌÆåÆ®
+    // í´ë¦­ ì´í™íŠ¸
     // =========================================================
 
     private void SpawnClickEffect(
@@ -329,7 +388,7 @@ public class RibelController : MonoBehaviour
     }
 
     // =========================================================
-    // ÀÌµ¿
+    // ì´ë™
     // =========================================================
 
     private void MoveCharacter()
@@ -375,7 +434,7 @@ public class RibelController : MonoBehaviour
     }
 
     // =========================================================
-    // ¾Ö´Ï¸ŞÀÌ¼Ç
+    // ì• ë‹ˆë©”ì´ì…˜
     // =========================================================
 
     private void UpdateAnimation()
@@ -465,7 +524,7 @@ public class RibelController : MonoBehaviour
     }
 
     // =========================================================
-    // »ç¸Á ¾Ö´Ï¸ŞÀÌ¼Ç
+    // ì‚¬ë§ ì• ë‹ˆë©”ì´ì…˜
     // =========================================================
 
     private void UpdateDeathAnimation()
@@ -500,7 +559,7 @@ public class RibelController : MonoBehaviour
     }
 
     // =========================================================
-    // ÇöÀç ÇÁ·¹ÀÓ
+    // í˜„ì¬ í”„ë ˆì„
     // =========================================================
 
     private Sprite[] GetCurrentFrames()
@@ -558,7 +617,7 @@ public class RibelController : MonoBehaviour
     }
 
     // =========================================================
-    // ¹æÇâº° Sprite
+    // ë°©í–¥ë³„ Sprite
     // =========================================================
 
     private void UpdateCurrentSprite(
@@ -614,7 +673,7 @@ public class RibelController : MonoBehaviour
     }
 
     // =========================================================
-    // ¸ğ¼Ç º¯°æ
+    // ëª¨ì…˜ ë³€ê²½
     // =========================================================
 
     private void ChangeMotion(
@@ -660,7 +719,7 @@ public class RibelController : MonoBehaviour
     }
 
     // =========================================================
-    // ¼ÒÈ¯ ¸ğ¼Ç
+    // ì†Œí™˜ ëª¨ì…˜
     // =========================================================
 
     public void PlaySummonMotion()
@@ -684,7 +743,7 @@ public class RibelController : MonoBehaviour
     }
 
     // =========================================================
-    // ÇÇ°İ ¸ğ¼Ç
+    // í”¼ê²© ëª¨ì…˜
     // =========================================================
 
     public void PlayHitMotion()
@@ -708,7 +767,7 @@ public class RibelController : MonoBehaviour
     }
 
     // =========================================================
-    // »ç¸Á ¸ğ¼Ç
+    // ì‚¬ë§ ëª¨ì…˜
     // =========================================================
 
     public void PlayDeathMotion()
@@ -738,7 +797,7 @@ public class RibelController : MonoBehaviour
     }
 
     // =========================================================
-    // ÀÌµ¿ Á¤Áö
+    // ì´ë™ ì •ì§€
     // =========================================================
 
     private void StopMovement()
@@ -751,7 +810,7 @@ public class RibelController : MonoBehaviour
     }
 
     // =========================================================
-    // 5¹æÇâ + ÁÂ¿ì¹İÀü
+    // 5ë°©í–¥ + ì¢Œìš°ë°˜ì „
     // =========================================================
 
     private int GetRowIndex(
