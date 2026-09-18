@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.Rendering;
 
 [RequireComponent(typeof(Rigidbody2D))]
 public class SummonUnitBase : MonoBehaviour
@@ -144,7 +145,16 @@ public class SummonUnitBase : MonoBehaviour
 
     private Collider2D bodyCollider;
 
+    [SerializeField]
     private SpriteRenderer bodySpriteRenderer;
+
+    private SortingGroup renderSortingGroup;
+
+    // 소환 등장 중에는 Collider를 잠시 끄기 때문에
+    // 마지막으로 유효했던 발 위치를 기억해서 정렬에 사용합니다.
+    private float lastValidFeetY;
+
+    private bool hasValidFeetY;
 
     private float currentHealth;
 
@@ -322,18 +332,28 @@ public class SummonUnitBase : MonoBehaviour
             }
         }
 
-        if (visualController != null)
-        {
-            bodySpriteRenderer =
-                visualController
-                    .GetComponentInChildren<SpriteRenderer>();
-        }
-
         if (bodySpriteRenderer == null)
         {
             bodySpriteRenderer =
-                GetComponentInChildren<SpriteRenderer>();
+                FindBodySpriteRenderer();
         }
+
+        renderSortingGroup =
+            GetComponent<SortingGroup>();
+
+        if (renderSortingGroup == null)
+        {
+            renderSortingGroup =
+                gameObject.AddComponent<SortingGroup>();
+        }
+
+        if (bodySpriteRenderer != null)
+        {
+            renderSortingGroup.sortingLayerID =
+                bodySpriteRenderer.sortingLayerID;
+        }
+
+        CacheCurrentFeetY();
 
         baseMaxHealth =
             maxHealth;
@@ -412,25 +432,128 @@ public class SummonUnitBase : MonoBehaviour
     }
 
     // =========================================================
+    // 실제 본체 SpriteRenderer 찾기
+    // =========================================================
+
+    private SpriteRenderer FindBodySpriteRenderer()
+    {
+        Transform searchRoot =
+            visualController != null
+                ? visualController.transform
+                : transform;
+
+        SpriteRenderer direct =
+            searchRoot.GetComponent<SpriteRenderer>();
+
+        if (IsBodySpriteRenderer(direct))
+        {
+            return direct;
+        }
+
+        SpriteRenderer[] renderers =
+            searchRoot.GetComponentsInChildren<SpriteRenderer>(
+                true
+            );
+
+        for (int i = 0;
+             i < renderers.Length;
+             i++)
+        {
+            if (IsBodySpriteRenderer(
+                    renderers[i]))
+            {
+                return renderers[i];
+            }
+        }
+
+        return null;
+    }
+
+    private bool IsBodySpriteRenderer(
+        SpriteRenderer renderer)
+    {
+        if (renderer == null)
+        {
+            return false;
+        }
+
+        string objectName =
+            renderer.gameObject.name.ToLowerInvariant();
+
+        if (objectName.Contains("shadow") ||
+            objectName.Contains("hp") ||
+            objectName.Contains("health") ||
+            objectName.Contains("bar") ||
+            objectName.Contains("marker") ||
+            objectName.Contains("range") ||
+            objectName.Contains("minimap") ||
+            objectName.Contains("effect") ||
+            objectName.Contains("preview"))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    // =========================================================
     // Collider 바닥 기준 앞뒤 정렬
     // =========================================================
 
-    private void UpdateYSorting()
+    private void CacheCurrentFeetY()
     {
-        if (bodySpriteRenderer == null ||
-            bodyCollider == null ||
+        if (bodyCollider == null ||
             !bodyCollider.enabled)
         {
             return;
         }
 
-        float bottomY =
+        lastValidFeetY =
             bodyCollider.bounds.min.y;
 
-        bodySpriteRenderer.sortingOrder =
+        hasValidFeetY =
+            true;
+    }
+
+    private void UpdateYSorting()
+    {
+        if (renderSortingGroup == null)
+        {
+            return;
+        }
+
+        float feetY;
+
+        if (bodyCollider != null &&
+            bodyCollider.enabled)
+        {
+            feetY =
+                bodyCollider.bounds.min.y;
+
+            lastValidFeetY =
+                feetY;
+
+            hasValidFeetY =
+                true;
+        }
+        else if (hasValidFeetY)
+        {
+            // 소환 등장 중 Collider가 꺼져 있어도
+            // 등장 직전의 실제 발 위치로 계속 정렬합니다.
+            feetY =
+                lastValidFeetY;
+        }
+        else
+        {
+            // 아주 예외적인 경우의 안전장치
+            feetY =
+                transform.position.y;
+        }
+
+        renderSortingGroup.sortingOrder =
             Mathf.Clamp(
                 Mathf.RoundToInt(
-                    -bottomY * 100f
+                    -feetY * 1000f
                 ),
                 -32000,
                 32000
@@ -576,6 +699,12 @@ public class SummonUnitBase : MonoBehaviour
             false;
 
         StopMovement();
+
+        // Collider를 끄기 직전 현재 발 위치를 저장합니다.
+        // 그래서 소환 애니메이션 중에도 Y 정렬이 흔들리지 않습니다.
+        CacheCurrentFeetY();
+
+        UpdateYSorting();
 
         SetCollidersEnabled(
             false

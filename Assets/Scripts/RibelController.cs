@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Serialization;
+using UnityEngine.Rendering;
 
 [RequireComponent(typeof(SpriteRenderer))]
 [RequireComponent(typeof(Rigidbody2D))]
@@ -79,6 +80,8 @@ public class RibelController : MonoBehaviour
     private Rigidbody2D rb;
 
     private Collider2D bodyCollider;
+
+    private SortingGroup renderSortingGroup;
 
     private Camera mainCamera;
 
@@ -163,6 +166,21 @@ public class RibelController : MonoBehaviour
             }
         }
 
+        renderSortingGroup =
+            GetComponent<SortingGroup>();
+
+        if (renderSortingGroup == null)
+        {
+            renderSortingGroup =
+                gameObject.AddComponent<SortingGroup>();
+        }
+
+        if (spriteRenderer != null)
+        {
+            renderSortingGroup.sortingLayerID =
+                spriteRenderer.sortingLayerID;
+        }
+
         mainCamera =
             Camera.main;
 
@@ -213,20 +231,20 @@ public class RibelController : MonoBehaviour
 
     private void UpdateYSorting()
     {
-        if (spriteRenderer == null ||
+        if (renderSortingGroup == null ||
             bodyCollider == null ||
             !bodyCollider.enabled)
         {
             return;
         }
 
-        float bottomY =
+        float feetY =
             bodyCollider.bounds.min.y;
 
-        spriteRenderer.sortingOrder =
+        renderSortingGroup.sortingOrder =
             Mathf.Clamp(
                 Mathf.RoundToInt(
-                    -bottomY * 100f
+                    -feetY * 1000f
                 ),
                 -32000,
                 32000

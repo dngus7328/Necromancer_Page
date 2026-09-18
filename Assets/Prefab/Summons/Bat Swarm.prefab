@@ -207,7 +207,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 1645092829
   m_SortingLayer: 2
-  m_SortingOrder: 3
+  m_SortingOrder: 6
   m_Sprite: {fileID: 998364303, guid: eeb6e4846b1c0fa41a4204b0a75c3ced, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -542,6 +542,7 @@ MonoBehaviour:
   maxAttackLockTime: 1.5
   postSummonInvincibleTime: 0.5
   visualController: {fileID: 6793878170536237371}
+  bodySpriteRenderer: {fileID: 0}
 --- !u!61 &-480249179204151298
 BoxCollider2D:
   m_ObjectHideFlags: 0

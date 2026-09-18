@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 [RequireComponent(typeof(Rigidbody2D))]
 public class EnemyUnitBase : MonoBehaviour
@@ -148,6 +149,10 @@ public class EnemyUnitBase : MonoBehaviour
     [SerializeField]
     private EnemyVisualController visualController;
 
+    [Header("공격 이펙트")]
+    [SerializeField]
+    private AttackEffectEmitter attackEffectEmitter;
+
     // =========================================================
     // 디버그 표시
     // =========================================================
@@ -190,7 +195,10 @@ public class EnemyUnitBase : MonoBehaviour
 
     private Collider2D bodyCollider;
 
+    [SerializeField]
     private SpriteRenderer bodySpriteRenderer;
+
+    private SortingGroup renderSortingGroup;
 
     private RibelHealth ribelHealth;
     private Collider2D ribelCollider;
@@ -287,17 +295,31 @@ public class EnemyUnitBase : MonoBehaviour
                 GetComponentInChildren<EnemyVisualController>();
         }
 
-        if (visualController != null)
+        if (attackEffectEmitter == null)
         {
-            bodySpriteRenderer =
-                visualController
-                    .GetComponentInChildren<SpriteRenderer>();
+            attackEffectEmitter =
+                GetComponentInChildren<AttackEffectEmitter>();
         }
 
         if (bodySpriteRenderer == null)
         {
             bodySpriteRenderer =
-                GetComponentInChildren<SpriteRenderer>();
+                FindBodySpriteRenderer();
+        }
+
+        renderSortingGroup =
+            GetComponent<SortingGroup>();
+
+        if (renderSortingGroup == null)
+        {
+            renderSortingGroup =
+                gameObject.AddComponent<SortingGroup>();
+        }
+
+        if (bodySpriteRenderer != null)
+        {
+            renderSortingGroup.sortingLayerID =
+                bodySpriteRenderer.sortingLayerID;
         }
 
         currentHealth =
@@ -343,25 +365,90 @@ public class EnemyUnitBase : MonoBehaviour
     }
 
     // =========================================================
+    // 실제 본체 SpriteRenderer 찾기
+    // =========================================================
+
+    private SpriteRenderer FindBodySpriteRenderer()
+    {
+        Transform searchRoot =
+            visualController != null
+                ? visualController.transform
+                : transform;
+
+        SpriteRenderer direct =
+            searchRoot.GetComponent<SpriteRenderer>();
+
+        if (IsBodySpriteRenderer(direct))
+        {
+            return direct;
+        }
+
+        SpriteRenderer[] renderers =
+            searchRoot.GetComponentsInChildren<SpriteRenderer>(
+                true
+            );
+
+        for (int i = 0;
+             i < renderers.Length;
+             i++)
+        {
+            if (IsBodySpriteRenderer(
+                    renderers[i]))
+            {
+                return renderers[i];
+            }
+        }
+
+        return null;
+    }
+
+    private bool IsBodySpriteRenderer(
+        SpriteRenderer renderer)
+    {
+        if (renderer == null)
+        {
+            return false;
+        }
+
+        string objectName =
+            renderer.gameObject.name.ToLowerInvariant();
+
+        if (objectName.Contains("shadow") ||
+            objectName.Contains("hp") ||
+            objectName.Contains("health") ||
+            objectName.Contains("bar") ||
+            objectName.Contains("marker") ||
+            objectName.Contains("range") ||
+            objectName.Contains("minimap") ||
+            objectName.Contains("effect") ||
+            objectName.Contains("preview"))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    // =========================================================
     // Collider 바닥 기준 앞뒤 정렬
     // =========================================================
 
     private void UpdateYSorting()
     {
-        if (bodySpriteRenderer == null ||
+        if (renderSortingGroup == null ||
             bodyCollider == null ||
             !bodyCollider.enabled)
         {
             return;
         }
 
-        float bottomY =
+        float feetY =
             bodyCollider.bounds.min.y;
 
-        bodySpriteRenderer.sortingOrder =
+        renderSortingGroup.sortingOrder =
             Mathf.Clamp(
                 Mathf.RoundToInt(
-                    -bottomY * 100f
+                    -feetY * 1000f
                 ),
                 -32000,
                 32000
@@ -1316,6 +1403,14 @@ public class EnemyUnitBase : MonoBehaviour
 
         Vector2 direction =
             attackDirection.normalized;
+
+        if (attackEffectEmitter != null)
+        {
+            attackEffectEmitter.PlayEffect(
+                direction,
+                AttackEffectEmitter.OwnerType.Enemy
+            );
+        }
 
         // 적 중심에서 공격 방향 앞으로 이동
         Vector2 hitboxCenter =

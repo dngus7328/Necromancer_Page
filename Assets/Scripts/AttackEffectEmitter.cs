@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public class AttackEffectEmitter : MonoBehaviour
 {
@@ -22,27 +23,11 @@ public class AttackEffectEmitter : MonoBehaviour
 
     [Header("기준 위치")]
 
-    [Tooltip(
-        "지정하면 이 Transform을 이펙트 기준점으로 사용합니다.\n" +
-        "비워두면 캐릭터 SpriteRenderer의 실제 중심을 자동 사용합니다."
-    )]
     [SerializeField]
     private Transform effectAnchor;
 
-    [Tooltip(
-        "캐릭터 본체 SpriteRenderer입니다.\n" +
-        "비워두면 자동으로 본체로 보이는 SpriteRenderer를 찾습니다."
-    )]
     [SerializeField]
     private SpriteRenderer ownerSpriteRenderer;
-
-    [Tooltip(
-        "자동 계산된 캐릭터 중심에서 이펙트 위치를 추가로 보정합니다.\n" +
-        "X = 좌우, Y = 위아래"
-    )]
-    [SerializeField]
-    private Vector2 effectOriginOffset =
-        new Vector2(0f, 0.1f);
 
     // =========================================================
     // 색상
@@ -52,21 +37,11 @@ public class AttackEffectEmitter : MonoBehaviour
 
     [SerializeField]
     private Color enemyColor =
-        new Color(
-            1f,
-            0.35f,
-            0.25f,
-            1f
-        );
+        new Color(1f, 0.35f, 0.25f, 1f);
 
     [SerializeField]
     private Color summonColor =
-        new Color(
-            0.4f,
-            0.95f,
-            1f,
-            1f
-        );
+        new Color(0.4f, 0.95f, 1f, 1f);
 
     // =========================================================
     // 모양
@@ -74,26 +49,32 @@ public class AttackEffectEmitter : MonoBehaviour
 
     [Header("모양")]
 
+    [Tooltip("생성되는 도트 이펙트 텍스처 크기")]
     [Range(16, 128)]
     [SerializeField]
     private int textureSize = 32;
 
+    [Tooltip("반달 바깥 반지름 (픽셀 단위)")]
     [Min(2f)]
     [SerializeField]
     private float outerRadiusPixels = 13f;
 
+    [Tooltip("반달 두께 (픽셀 단위)")]
     [Min(1f)]
     [SerializeField]
     private float thicknessPixels = 5f;
 
+    [Tooltip("반달 각도")]
     [Range(20f, 180f)]
     [SerializeField]
     private float arcAngle = 100f;
 
+    [Tooltip("기본 반달 방향의 추가 회전값")]
     [Range(-180f, 180f)]
     [SerializeField]
     private float arcCenterOffset = 0f;
 
+    [Tooltip("스프라이트 1유닛당 픽셀 수")]
     [Min(1)]
     [SerializeField]
     private int pixelsPerUnit = 32;
@@ -104,30 +85,23 @@ public class AttackEffectEmitter : MonoBehaviour
 
     [Header("크기 / 위치")]
 
+    [Tooltip("실제 게임 화면에서 보이는 이펙트 크기")]
     [SerializeField]
     private Vector2 effectWorldSize =
-        new Vector2(
-            1.6f,
-            1.6f
-        );
+        new Vector2(1.6f, 1.6f);
 
-    [Tooltip(
-        "캐릭터 중심에서 공격 방향으로 " +
-        "얼마나 앞에 생성할지 결정합니다."
-    )]
+    [Tooltip("본체 중심에서 얼마나 앞에 생성할지")]
     [Min(0f)]
     [SerializeField]
     private float spawnDistance = 0.65f;
 
+    [Tooltip("공격 방향에 더해질 추가 회전")]
     [Range(-180f, 180f)]
     [SerializeField]
     private float additionalRotation = 0f;
 
-    [Tooltip(
-        "캐릭터보다 몇 단계 위에 이펙트를 그릴지 결정합니다."
-    )]
     [SerializeField]
-    private int sortingOrderOffset = 20;
+    private int sortingOrderOffset = 5;
 
     // =========================================================
     // 애니메이션
@@ -154,18 +128,12 @@ public class AttackEffectEmitter : MonoBehaviour
     [SerializeField]
     private AnimationCurve alphaCurve =
         new AnimationCurve(
-            new Keyframe(
-                0f,
-                1f
-            ),
-            new Keyframe(
-                1f,
-                0f
-            )
+            new Keyframe(0f, 1f),
+            new Keyframe(1f, 0f)
         );
 
     // =========================================================
-    // Inspector 미리보기
+    // 인스펙터 미리보기
     // =========================================================
 
     [Header("인스펙터 미리보기")]
@@ -179,15 +147,14 @@ public class AttackEffectEmitter : MonoBehaviour
         PreviewDirection.Right;
 
     // =========================================================
-    // Cache
+    // 캐시
     // =========================================================
 
     private Texture2D cachedTexture;
-
     private Sprite cachedSprite;
 
     // =========================================================
-    // Public
+    // Public Property
     // =========================================================
 
     public OwnerType CurrentPreviewOwner =>
@@ -198,9 +165,6 @@ public class AttackEffectEmitter : MonoBehaviour
 
     public Vector2 EffectWorldSize =>
         effectWorldSize;
-
-    public Vector2 EffectOriginOffset =>
-        effectOriginOffset;
 
     public float SpawnDistance =>
         spawnDistance;
@@ -217,12 +181,25 @@ public class AttackEffectEmitter : MonoBehaviour
 
     private void Reset()
     {
-        FindOwnerSpriteRenderer();
+        effectAnchor =
+            transform;
+
+        ownerSpriteRenderer =
+            GetComponentInChildren<SpriteRenderer>();
     }
 
     private void Awake()
     {
-        FindOwnerSpriteRenderer();
+        if (effectAnchor == null)
+        {
+            effectAnchor = transform;
+        }
+
+        if (ownerSpriteRenderer == null)
+        {
+            ownerSpriteRenderer =
+                GetComponentInChildren<SpriteRenderer>();
+        }
     }
 
     private void OnDestroy()
@@ -230,149 +207,83 @@ public class AttackEffectEmitter : MonoBehaviour
         ClearCache();
     }
 
-    // =========================================================
-    // SpriteRenderer 자동 탐색
-    // =========================================================
-
-    private void FindOwnerSpriteRenderer()
+#if UNITY_EDITOR
+    private void OnValidate()
     {
-        if (ownerSpriteRenderer != null)
-        {
-            return;
-        }
+        textureSize =
+            Mathf.Clamp(textureSize, 16, 128);
 
-        SpriteRenderer[] renderers =
-            GetComponentsInChildren<SpriteRenderer>(
-                true
+        outerRadiusPixels =
+            Mathf.Max(2f, outerRadiusPixels);
+
+        thicknessPixels =
+            Mathf.Clamp(
+                thicknessPixels,
+                1f,
+                outerRadiusPixels - 1f
             );
 
-        if (renderers == null ||
-            renderers.Length == 0)
-        {
-            return;
-        }
+        pixelsPerUnit =
+            Mathf.Max(1, pixelsPerUnit);
 
-        SpriteRenderer bestRenderer =
-            null;
+        effectWorldSize.x =
+            Mathf.Max(0.05f, effectWorldSize.x);
 
-        float bestScore =
-            float.MinValue;
+        effectWorldSize.y =
+            Mathf.Max(0.05f, effectWorldSize.y);
 
-        for (int i = 0;
-             i < renderers.Length;
-             i++)
-        {
-            SpriteRenderer renderer =
-                renderers[i];
+        spawnDistance =
+            Mathf.Max(0f, spawnDistance);
 
-            if (renderer == null ||
-                renderer.sprite == null)
-            {
-                continue;
-            }
+        lifetime =
+            Mathf.Max(0.01f, lifetime);
 
-            string objectName =
-                renderer.gameObject.name
-                    .ToLowerInvariant();
+        moveDistance =
+            Mathf.Max(0f, moveDistance);
 
-            // HP바 / 그림자 / 마커 등은 본체 후보에서 제외
-            if (objectName.Contains("hp") ||
-                objectName.Contains("health") ||
-                objectName.Contains("bar") ||
-                objectName.Contains("shadow") ||
-                objectName.Contains("marker") ||
-                objectName.Contains("range") ||
-                objectName.Contains("minimap"))
-            {
-                continue;
-            }
+        startScale =
+            Mathf.Max(0.01f, startScale);
 
-            Vector3 size =
-                renderer.bounds.size;
+        endScale =
+            Mathf.Max(0.01f, endScale);
 
-            float area =
-                Mathf.Abs(
-                    size.x *
-                    size.y
-                );
-
-            float score =
-                area;
-
-            if (renderer.enabled)
-            {
-                score += 1000f;
-            }
-
-            if (score >
-                bestScore)
-            {
-                bestScore =
-                    score;
-
-                bestRenderer =
-                    renderer;
-            }
-        }
-
-        if (bestRenderer != null)
-        {
-            ownerSpriteRenderer =
-                bestRenderer;
-        }
+        ClearCache();
     }
+#endif
 
     // =========================================================
-    // 공격 이펙트 실행
+    // 외부 호출
     // =========================================================
 
     public void PlayEffect(
         Vector2 direction,
         OwnerType ownerType)
     {
-        if (!IsFinite(direction) ||
-            direction.sqrMagnitude <
-            0.0001f)
+        if (direction.sqrMagnitude < 0.0001f)
         {
-            direction =
-                Vector2.right;
+            direction = Vector2.right;
         }
 
         direction.Normalize();
 
-        FindOwnerSpriteRenderer();
-
-        Vector3 origin =
-            ResolveEffectOrigin();
+        Transform anchor =
+            effectAnchor != null
+                ? effectAnchor
+                : transform;
 
         Vector3 spawnPosition =
-            origin +
-            (Vector3)(
-                direction *
-                spawnDistance
-            );
-
-        if (!IsFinite(spawnPosition))
-        {
-            spawnPosition =
-                transform.position;
-        }
+            anchor.position +
+            (Vector3)(direction * spawnDistance);
 
         float angle =
             Mathf.Atan2(
                 direction.y,
                 direction.x
-            ) *
-            Mathf.Rad2Deg +
+            ) * Mathf.Rad2Deg +
             additionalRotation;
 
         GameObject effectObject =
-            new GameObject(
-                ownerType ==
-                OwnerType.Enemy
-                    ? "Enemy_SlashEffect"
-                    : "Summon_SlashEffect"
-            );
+            new GameObject("SlashEffect");
 
         effectObject.transform.position =
             spawnPosition;
@@ -387,46 +298,37 @@ public class AttackEffectEmitter : MonoBehaviour
         ProceduralSlashEffect effect =
             effectObject.AddComponent<ProceduralSlashEffect>();
 
-        int sortingLayerID = 0;
+        int sortingLayerID =
+            0;
 
         int sortingOrder =
             sortingOrderOffset;
 
-        if (ownerSpriteRenderer != null)
+        SortingGroup ownerSortingGroup =
+            GetComponentInParent<SortingGroup>();
+
+        if (ownerSortingGroup != null)
         {
             sortingLayerID =
-                ownerSpriteRenderer
-                    .sortingLayerID;
+                ownerSortingGroup.sortingLayerID;
 
             sortingOrder =
-                ownerSpriteRenderer
-                    .sortingOrder +
+                ownerSortingGroup.sortingOrder +
+                sortingOrderOffset;
+        }
+        else if (ownerSpriteRenderer != null)
+        {
+            sortingLayerID =
+                ownerSpriteRenderer.sortingLayerID;
+
+            sortingOrder =
+                ownerSpriteRenderer.sortingOrder +
                 sortingOrderOffset;
         }
 
-        Sprite sprite =
-            GetOrCreateSprite();
-
-        if (sprite == null)
-        {
-            Debug.LogWarning(
-                "[AttackEffectEmitter] " +
-                "반달 Sprite 생성에 실패했습니다.",
-                this
-            );
-
-            Destroy(
-                effectObject
-            );
-
-            return;
-        }
-
         effect.Initialize(
-            sprite,
-            GetOwnerColor(
-                ownerType
-            ),
+            GetOrCreateSprite(),
+            GetOwnerColor(ownerType),
             effectWorldSize,
             direction,
             moveDistance,
@@ -439,50 +341,6 @@ public class AttackEffectEmitter : MonoBehaviour
         );
     }
 
-    // =========================================================
-    // 실제 생성 기준점
-    // =========================================================
-
-    private Vector3 ResolveEffectOrigin()
-    {
-        Vector3 origin;
-
-        // Anchor를 직접 넣었으면 그 위치 우선
-        if (effectAnchor != null)
-        {
-            origin =
-                effectAnchor.position;
-        }
-
-        // 없으면 캐릭터 이미지의 실제 중심 사용
-        else if (ownerSpriteRenderer != null)
-        {
-            origin =
-                ownerSpriteRenderer
-                    .bounds
-                    .center;
-        }
-
-        else
-        {
-            origin =
-                transform.position;
-        }
-
-        origin +=
-            new Vector3(
-                effectOriginOffset.x,
-                effectOriginOffset.y,
-                0f
-            );
-
-        return origin;
-    }
-
-    // =========================================================
-    // Preview
-    // =========================================================
-
     public void PlayPreviewEffect()
     {
         PlayEffect(
@@ -491,6 +349,10 @@ public class AttackEffectEmitter : MonoBehaviour
         );
     }
 
+    // =========================================================
+    // 인스펙터용 정보
+    // =========================================================
+
     public Texture2D GetPreviewTexture()
     {
         return GetOrCreateTexture();
@@ -498,9 +360,7 @@ public class AttackEffectEmitter : MonoBehaviour
 
     public Color GetPreviewColor()
     {
-        return GetOwnerColor(
-            previewOwner
-        );
+        return GetOwnerColor(previewOwner);
     }
 
     public Vector2 GetPreviewDirectionVector()
@@ -523,7 +383,7 @@ public class AttackEffectEmitter : MonoBehaviour
 
     public float GetPreviewGuiAngle()
     {
-        float angle;
+        float angle = 0f;
 
         switch (previewDirection)
         {
@@ -544,8 +404,7 @@ public class AttackEffectEmitter : MonoBehaviour
                 break;
         }
 
-        return angle +
-               additionalRotation;
+        return angle + additionalRotation;
     }
 
     // =========================================================
@@ -555,15 +414,13 @@ public class AttackEffectEmitter : MonoBehaviour
     private Color GetOwnerColor(
         OwnerType ownerType)
     {
-        return
-            ownerType ==
-            OwnerType.Enemy
-                ? enemyColor
-                : summonColor;
+        return ownerType == OwnerType.Enemy
+            ? enemyColor
+            : summonColor;
     }
 
     // =========================================================
-    // Texture / Sprite
+    // 스프라이트 캐시
     // =========================================================
 
     private Texture2D GetOrCreateTexture()
@@ -581,11 +438,6 @@ public class AttackEffectEmitter : MonoBehaviour
                 arcAngle,
                 arcCenterOffset
             );
-
-        if (cachedTexture == null)
-        {
-            return null;
-        }
 
         cachedTexture.filterMode =
             FilterMode.Point;
@@ -609,11 +461,6 @@ public class AttackEffectEmitter : MonoBehaviour
         Texture2D texture =
             GetOrCreateTexture();
 
-        if (texture == null)
-        {
-            return null;
-        }
-
         cachedSprite =
             Sprite.Create(
                 texture,
@@ -623,10 +470,7 @@ public class AttackEffectEmitter : MonoBehaviour
                     texture.width,
                     texture.height
                 ),
-                new Vector2(
-                    0.5f,
-                    0.5f
-                ),
+                new Vector2(0.5f, 0.5f),
                 pixelsPerUnit
             );
 
@@ -642,43 +486,33 @@ public class AttackEffectEmitter : MonoBehaviour
         {
             if (Application.isPlaying)
             {
-                Destroy(
-                    cachedSprite
-                );
+                Destroy(cachedSprite);
             }
             else
             {
-                DestroyImmediate(
-                    cachedSprite
-                );
+                DestroyImmediate(cachedSprite);
             }
 
-            cachedSprite =
-                null;
+            cachedSprite = null;
         }
 
         if (cachedTexture != null)
         {
             if (Application.isPlaying)
             {
-                Destroy(
-                    cachedTexture
-                );
+                Destroy(cachedTexture);
             }
             else
             {
-                DestroyImmediate(
-                    cachedTexture
-                );
+                DestroyImmediate(cachedTexture);
             }
 
-            cachedTexture =
-                null;
+            cachedTexture = null;
         }
     }
 
     // =========================================================
-    // 반달 도트 생성
+    // 실제 도트 텍스처 생성
     // =========================================================
 
     public static Texture2D BuildSlashTexture(
@@ -688,12 +522,6 @@ public class AttackEffectEmitter : MonoBehaviour
         float arc,
         float centerOffset)
     {
-        size =
-            Mathf.Max(
-                16,
-                size
-            );
-
         Texture2D texture =
             new Texture2D(
                 size,
@@ -703,91 +531,54 @@ public class AttackEffectEmitter : MonoBehaviour
             );
 
         Color clear =
-            new Color(
-                0f,
-                0f,
-                0f,
-                0f
-            );
+            new Color(0f, 0f, 0f, 0f);
 
         Color fill =
             Color.white;
 
         Color[] colors =
-            new Color[
-                size * size
-            ];
+            new Color[size * size];
 
-        for (int i = 0;
-             i < colors.Length;
-             i++)
+        for (int i = 0; i < colors.Length; i++)
         {
-            colors[i] =
-                clear;
+            colors[i] = clear;
         }
 
         float half =
             size * 0.5f;
 
-        outerRadius =
-            Mathf.Clamp(
-                outerRadius,
-                2f,
-                half - 1f
-            );
-
-        thickness =
-            Mathf.Clamp(
-                thickness,
-                1f,
-                outerRadius - 1f
+        float innerRadius =
+            Mathf.Max(
+                0f,
+                outerRadius - thickness
             );
 
         float halfArc =
-            Mathf.Clamp(
-                arc * 0.5f,
-                10f,
-                90f
-            );
+            arc * 0.5f;
 
-        for (int y = 0;
-             y < size;
-             y++)
+        for (int y = 0; y < size; y++)
         {
-            for (int x = 0;
-                 x < size;
-                 x++)
+            for (int x = 0; x < size; x++)
             {
                 float px =
-                    x +
-                    0.5f -
-                    half;
+                    x + 0.5f - half;
 
                 float py =
-                    y +
-                    0.5f -
-                    half;
+                    y + 0.5f - half;
 
                 Vector2 point =
-                    new Vector2(
-                        px,
-                        py
-                    );
+                    new Vector2(px, py);
 
                 float radius =
                     point.magnitude;
 
-                if (radius >
-                    outerRadius)
+                if (radius > outerRadius)
                 {
                     continue;
                 }
 
                 float angle =
-                    Mathf.Atan2(
-                        py,
-                        px
-                    ) *
+                    Mathf.Atan2(py, px) *
                     Mathf.Rad2Deg;
 
                 float delta =
@@ -796,151 +587,44 @@ public class AttackEffectEmitter : MonoBehaviour
                         angle
                     );
 
-                if (Mathf.Abs(delta) >
-                    halfArc)
+                if (Mathf.Abs(delta) > halfArc)
                 {
                     continue;
                 }
 
-                float middleAmount =
-                    1f -
-                    Mathf.Clamp01(
-                        Mathf.Abs(delta) /
-                        halfArc
+                float endTaper =
+                    Mathf.InverseLerp(
+                        halfArc,
+                        0f,
+                        Mathf.Abs(delta)
                     );
 
-                float currentThickness =
+                float localThickness =
                     Mathf.Lerp(
-                        thickness * 0.55f,
+                        thickness * 0.65f,
                         thickness,
-                        middleAmount
+                        endTaper
                     );
 
-                float innerRadius =
-                    outerRadius -
-                    currentThickness;
+                float localInnerRadius =
+                    outerRadius - localThickness;
 
-                if (radius <
-                    innerRadius)
+                if (radius < localInnerRadius ||
+                    radius < innerRadius * 0.55f)
                 {
                     continue;
                 }
 
                 int index =
-                    y * size +
-                    x;
+                    y * size + x;
 
-                colors[index] =
-                    fill;
+                colors[index] = fill;
             }
         }
 
-        texture.SetPixels(
-            colors
-        );
-
+        texture.SetPixels(colors);
         texture.Apply();
 
         return texture;
     }
-
-    // =========================================================
-    // 안전장치
-    // =========================================================
-
-    private static bool IsFinite(
-        float value)
-    {
-        return
-            !float.IsNaN(value) &&
-            !float.IsInfinity(value);
-    }
-
-    private static bool IsFinite(
-        Vector2 value)
-    {
-        return
-            IsFinite(value.x) &&
-            IsFinite(value.y);
-    }
-
-#if UNITY_EDITOR
-
-    private void OnValidate()
-    {
-        textureSize =
-            Mathf.Clamp(
-                textureSize,
-                16,
-                128
-            );
-
-        outerRadiusPixels =
-            Mathf.Max(
-                2f,
-                outerRadiusPixels
-            );
-
-        thicknessPixels =
-            Mathf.Clamp(
-                thicknessPixels,
-                1f,
-                Mathf.Max(
-                    1.01f,
-                    outerRadiusPixels - 1f
-                )
-            );
-
-        pixelsPerUnit =
-            Mathf.Max(
-                1,
-                pixelsPerUnit
-            );
-
-        effectWorldSize.x =
-            Mathf.Max(
-                0.05f,
-                effectWorldSize.x
-            );
-
-        effectWorldSize.y =
-            Mathf.Max(
-                0.05f,
-                effectWorldSize.y
-            );
-
-        spawnDistance =
-            Mathf.Max(
-                0f,
-                spawnDistance
-            );
-
-        lifetime =
-            Mathf.Max(
-                0.01f,
-                lifetime
-            );
-
-        moveDistance =
-            Mathf.Max(
-                0f,
-                moveDistance
-            );
-
-        startScale =
-            Mathf.Max(
-                0.01f,
-                startScale
-            );
-
-        endScale =
-            Mathf.Max(
-                0.01f,
-                endScale
-            );
-
-        ClearCache();
-    }
-
-#endif
 }

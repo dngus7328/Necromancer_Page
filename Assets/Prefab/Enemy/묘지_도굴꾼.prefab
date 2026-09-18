@@ -139,14 +139,14 @@ MonoBehaviour:
   manaReward: 5
   moveSpeed: 1
   attackDamage: 5
-  attackRange: 0.25
-  attackKeepRange: 0.8
-  attackInterval: 1.2
+  attackRange: 0.3
+  attackKeepRange: 0.5
+  attackInterval: 1.5
   useContactDamage: 1
   contactDamage: 3
   contactDamageInterval: 0.6
-  attackHitboxSize: {x: 2, y: 0.8}
-  attackHitboxForwardOffset: 0.55
+  attackHitboxSize: {x: 1, y: 0.99}
+  attackHitboxForwardOffset: 0.92
   attackTargetMask:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -162,6 +162,7 @@ MonoBehaviour:
   alwaysShowAttackHitbox: 1
   showAttackStartRange: 1
   showDetectionRange: 1
+  bodySpriteRenderer: {fileID: 0}
 --- !u!212 &4330803198172308146
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -320,7 +321,7 @@ MonoBehaviour:
   - {fileID: 157293699, guid: fb67186397865064eae97e97368b1755, type: 3}
   - {fileID: 2051304770, guid: fb67186397865064eae97e97368b1755, type: 3}
   idleColumns: 6
-  idleFrameRate: 6
+  idleFrameRate: 12
   walkFrames:
   - {fileID: 1810306121, guid: 6693a26e73d6b3341ac21da7e02053e4, type: 3}
   - {fileID: 908149475, guid: 6693a26e73d6b3341ac21da7e02053e4, type: 3}
@@ -341,7 +342,7 @@ MonoBehaviour:
   - {fileID: 1758730437, guid: 6693a26e73d6b3341ac21da7e02053e4, type: 3}
   - {fileID: 661519746, guid: 6693a26e73d6b3341ac21da7e02053e4, type: 3}
   walkColumns: 6
-  walkFrameRate: 6
+  walkFrameRate: 12
   telegraphFrames:
   - {fileID: -1438096874, guid: 2d0534a7e46ac9f409c387c8d037302f, type: 3}
   - {fileID: 1316334555, guid: 2d0534a7e46ac9f409c387c8d037302f, type: 3}
@@ -366,14 +367,35 @@ MonoBehaviour:
   - {fileID: 1901589059, guid: 2d0534a7e46ac9f409c387c8d037302f, type: 3}
   attackColumns: 3
   attackFrameRate: 6
-  attackHitFrame: 2
-  hitFrames: []
-  hitColumns: 2
-  hitFrameRate: 10
-  deathFrames: []
-  deathColumns: 5
-  deathFrameRate: 8
-  deathHoldTime: 0.45
+  attackHitFrame: 1
+  hitFrames:
+  - {fileID: -1755211832, guid: 1a738d28a7df9d94c875a4eaf219886b, type: 3}
+  - {fileID: -80149928, guid: 1a738d28a7df9d94c875a4eaf219886b, type: 3}
+  - {fileID: -111686844, guid: 1a738d28a7df9d94c875a4eaf219886b, type: 3}
+  - {fileID: 1839551835, guid: 1a738d28a7df9d94c875a4eaf219886b, type: 3}
+  - {fileID: 1444869492, guid: 1a738d28a7df9d94c875a4eaf219886b, type: 3}
+  - {fileID: 108812331, guid: 1a738d28a7df9d94c875a4eaf219886b, type: 3}
+  - {fileID: -1295718471, guid: 1a738d28a7df9d94c875a4eaf219886b, type: 3}
+  - {fileID: -612617646, guid: 1a738d28a7df9d94c875a4eaf219886b, type: 3}
+  - {fileID: 1396383002, guid: 1a738d28a7df9d94c875a4eaf219886b, type: 3}
+  hitColumns: 3
+  hitFrameRate: 9
+  deathFrames:
+  - {fileID: -1232050430, guid: d9fa136af13d3624b9c06fabb426d93e, type: 3}
+  - {fileID: 1959864180, guid: d9fa136af13d3624b9c06fabb426d93e, type: 3}
+  - {fileID: 702259998, guid: d9fa136af13d3624b9c06fabb426d93e, type: 3}
+  - {fileID: -2032711200, guid: d9fa136af13d3624b9c06fabb426d93e, type: 3}
+  - {fileID: 1761369120, guid: d9fa136af13d3624b9c06fabb426d93e, type: 3}
+  - {fileID: 535653855, guid: d9fa136af13d3624b9c06fabb426d93e, type: 3}
+  - {fileID: 204896903, guid: d9fa136af13d3624b9c06fabb426d93e, type: 3}
+  - {fileID: -1997953416, guid: d9fa136af13d3624b9c06fabb426d93e, type: 3}
+  - {fileID: -1684869470, guid: d9fa136af13d3624b9c06fabb426d93e, type: 3}
+  - {fileID: 1756236793, guid: d9fa136af13d3624b9c06fabb426d93e, type: 3}
+  - {fileID: -1065585183, guid: d9fa136af13d3624b9c06fabb426d93e, type: 3}
+  - {fileID: -2093901877, guid: d9fa136af13d3624b9c06fabb426d93e, type: 3}
+  deathColumns: 4
+  deathFrameRate: 12
+  deathHoldTime: 0.6
   deathFadeTime: 0.4
   hitFlashColor: {r: 1, g: 0.35, b: 0.35, a: 1}
   hitFlashDuration: 0.2
@@ -433,7 +455,7 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   previewOwner: 0
-  previewDirection: 0
+  previewDirection: 3
 --- !u!210 &3865872080368469064
 SortingGroup:
   m_ObjectHideFlags: 0
